@@ -1,0 +1,33 @@
+1. SQL Column Error: symbol_out is deprecated in Dune. Use token_bought_symbol for the standardized dex.trades table.
+
+2. SQL Syntax Error: Trino (DuneSQL) requires INTERVAL '24' HOUR (singular unit, outside quotes), not INTERVAL '24 hours'.
+
+3. Python Unit Logic: Blockchain returns balances in Wei ($10^{18}$). Must use w3.from_wei(value, 'ether') to get the real number.
+
+4. SQL Aggregate Error: When using a math function like SUM(), any additional columns in the SELECT statement (like blockchain or project) must also be included in the GROUP BY clause.
+
+5. Python State Management: To detect changes (like a new block), you must store the last_known_value in a variable and compare it to the current_value inside your while True loop.
+
+6. SQL Partial Hours: A low total_blocks count (e.g. 16) in an hourly aggregation means the hour is incomplete. Never draw conclusions from partial hours — always check this column first.
+
+7. SQL Data Reading: Always get the full dataset before analysing. A partial paste or a LIMIT clause can hide the real peaks and lead to wrong conclusions.
+
+8. Python Connection Error — MissingSchema: Always replace placeholder text like your_alchemy_url_here with your actual RPC URL before running. The URL must start with https://.
+
+9. Python InvalidAddress — EIP-55 Checksum: web3.py strictly validates address capitalisation. Always wrap addresses with w3.to_checksum_address() to avoid checksum errors regardless of how the address was copied.
+
+10. SQL Schema Error — Column Cannot Be Resolved: Column names vary between Dune tables. Always verify exact column names in the Data Explorer before writing a query against a new table. Never assume a column name carries over from a previous table.
+
+11. web3.py Version Change — fromBlock vs from_block: Newer versions of web3.py use snake_case for filter parameters. Use from_block not fromBlock in create_filter(). Always check the error message — it usually tells you the correct parameter name directly.
+
+12. Python Output Overlap: When get_new_entries() returns multiple events simultaneously, terminal prints can overlap mid-output. Collect all events into a list first, then print after processing to avoid clipped output.
+
+13. API Key Security: Never share API keys in public chats, repos, or screenshots. If exposed, regenerate immediately. Store keys in your script locally only, or better yet in a separate config file that isn't shared.
+
+14. Python ModuleNotFoundError: Python searches for modules in the same folder as the running script. If config.py is in a parent folder, add sys.path.append('path/to/folder') at the top of your script before imports.
+
+15. Python NameError — Function Not Yet Defined: Python reads files top to bottom. You cannot call a function before it has been defined. Always place function calls after the def block that defines them.
+
+16. Etherscan API V1 Deprecated: The V1 endpoint api.etherscan.io/api is deprecated. Use V2 at api.etherscan.io/v2/api and add "chainid": "1" for Ethereum mainnet. V1 returns NOTOK with a migration message.
+
+17. Aave getReserveData ABI Mismatch: Aave V3 updated their return data structure. Instead of fighting ABI decoding, read aToken and variable debt token totalSupply() directly — same data, simpler approach.

@@ -32,6 +32,11 @@ KNOWN_ADDRESSES = {
 
 ADDRESS_CACHE = {}
 
+# Daily tracking
+daily_alert_count = 0
+daily_volume = 0.0
+last_summary_date = datetime.now(timezone.utc).date()
+
 def get_etherscan_label(address):
     try:
         url = "https://api.etherscan.io/v2/api"
@@ -66,7 +71,17 @@ def classify_transfer(sender, receiver):
     elif sender == ZERO_ADDRESS:
         return "🪙 MINT"
     else:
-        return "🐋 TRANSFER"
+        return "💸 TRANSFER"
+
+def classify_size(amount_usdc):
+    if amount_usdc >= 100_000_000:
+        return "🚨 MEGA WHALE"
+    elif amount_usdc >= 10_000_000:
+        return "🐋 LARGE WHALE"
+    elif amount_usdc >= 1_000_000:
+        return "🐟 WHALE"
+    else:
+        return "🔹 TRANSFER"
 
 def get_timestamp(block_number):
     block = w3.eth.get_block(block_number)
@@ -85,6 +100,15 @@ def send_telegram(message):
         requests.post(url, data=payload, timeout=5)
     except Exception as e:
         print(f"Telegram error: {e}")
+
+def send_daily_summary(count, volume):
+    message = (
+        f"📊 <b>Daily USDC Whale Summary</b>\n"
+        f"Alerts fired: {count}\n"
+        f"Total volume tracked: ${volume:,.2f} USDC\n"
+        f"Threshold: 1,000,000 USDC"
+    )
+    send_telegram(message)
 
 print("Whale Alert Bot started...")
 print(f"Threshold: 1,000,000 USDC")
@@ -107,7 +131,9 @@ while True:
             tx_hash = event['transactionHash'].hex()
             block_number = event['blockNumber']
             timestamp = get_timestamp(block_number)
-            label = classify_transfer(sender, receiver)
+            transfer_type = classify_transfer(sender, receiver)
+            size_label = classify_size(amount_usdc)
+            label = f"{size_label} — {transfer_type}"
             sender_label = get_label(sender)
             receiver_label = get_label(receiver)
             alerts.append((label, timestamp, block_number,
@@ -117,6 +143,10 @@ while True:
     for alert in alerts:
         label, timestamp, block_number, amount_usdc, \
         sender, sender_label, receiver, receiver_label, tx_hash = alert
+
+        # Increment daily counters
+        daily_alert_count += 1
+        daily_volume += amount_usdc
 
         # Terminal output
         print(f"{label}")
@@ -137,5 +167,13 @@ while True:
             f"<b>TX:</b> https://etherscan.io/tx/{tx_hash}"
         )
         send_telegram(message)
+
+    # Check if day has changed — send summary at midnight UTC
+    current_date = datetime.now(timezone.utc).date()
+    if current_date != last_summary_date:
+        send_daily_summary(daily_alert_count, daily_volume)
+        daily_alert_count = 0
+        daily_volume = 0.0
+        last_summary_date = current_date
 
     time.sleep(12)

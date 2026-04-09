@@ -31,3 +31,19 @@
 16. Etherscan API V1 Deprecated: The V1 endpoint api.etherscan.io/api is deprecated. Use V2 at api.etherscan.io/v2/api and add "chainid": "1" for Ethereum mainnet. V1 returns NOTOK with a migration message.
 
 17. Aave getReserveData ABI Mismatch: Aave V3 updated their return data structure. Instead of fighting ABI decoding, read aToken and variable debt token totalSupply() directly — same data, simpler approach.
+
+18. Query 4 Negative Flows: Large negative net_flow_wei values indicate user withdrawals (bearish), not bugs. This is real protocol data showing capital outflows. Interpret, don't dismiss.
+
+19. Dune Table Naming Variance: Some tables use erc20_ethereum.evt_transfer (chain-specific), others use erc20.evt_transfer (generic). Both work. If one fails, try the other. Check Data Explorer to see which exists for your chain.
+
+20: web3.py EIP-55 Checksum Validation — Address capitalization matters. 0xC02aaA39b223FE8D0A0e8e4F27ead9083C756Cc2 is invalid. Use w3.to_checksum_address() to fix.
+
+21: Alchemy API 400 Bad Request — Query is too broad. Querying 100 blocks across 5 token addresses at once hits rate limits or block range limits.
+
+22: API Key Security — If key is in error messages or logs, it's compromised. Regenerate immediately.
+
+23: Network Proxy Error — Your corporate/ISP proxy is blocking API requests. Dune API endpoint is unreachable.
+
+24: Log Data Type Mismatch — log['data'] is bytes, not hex string. Use .hex() to convert.
+
+25: RPC Result Limit — Infura returns max 10K logs per query. Need smaller block range.

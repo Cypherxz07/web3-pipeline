@@ -2,9 +2,9 @@ from web3 import Web3
 import sys
 import sqlite3
 sys.path.append(r'C:\Users\USER\Desktop\web3-pipeline')
-from config import INFURA_RPC_URL, WHALE_TRACKER_TRACKED_TOKENS
+from config import INFURA_PROJECT_ID, WHALE_TRACKER_TRACKED_TOKENS
 
-w3 = Web3(Web3.HTTPProvider(INFURA_RPC_URL))
+w3 = Web3(Web3.HTTPProvider(INFURA_PROJECT_ID))
 
 TRACKED_TOKENS = {w3.to_checksum_address(addr): symbol for addr, symbol in WHALE_TRACKER_TRACKED_TOKENS.items()}
 
@@ -20,19 +20,22 @@ PRICES = {
     '0xC02aaA39b223FE8D0A0e8e4F27ead9083C756Cc2': 2500,  # WETH (approximate)
 }
 
-def get_transfer_logs(from_block, to_block):
+def get_transfer_logs(w3, from_block, to_block, chain='ethereum'):
+    """Fetch logs from any chain"""
     transfer_sig = Web3.keccak(text="Transfer(address,address,uint256)")
     all_logs = []
     
-    # Query each token separately
-    for token_addr in list(TRACKED_TOKENS.keys())[:2]:  # Top 2 tokens
-        logs = w3.eth.get_logs({
-            'fromBlock': from_block,
-            'toBlock': min(to_block, from_block + 100),
-            'topics': [transfer_sig],
-            'address': [token_addr]  # Single token
-        })
-        all_logs.extend(logs)
+    for token_addr in list(TRACKED_TOKENS.keys())[:2]:
+        try:
+            logs = w3.eth.get_logs({
+                'fromBlock': from_block,
+                'toBlock': min(to_block, from_block + 100),
+                'topics': [transfer_sig],
+                'address': [token_addr]
+            })
+            all_logs.extend(logs)
+        except Exception as e:
+            print(f"Error fetching on {chain}: {e}")
     
     return all_logs
 

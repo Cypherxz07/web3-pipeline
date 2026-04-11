@@ -1,40 +1,64 @@
 import time
 import sys
+import asyncio
 sys.path.append(r'C:\Users\USER\Desktop\web3-pipeline')
 from whale_tracker.fetch_transfers import get_transfer_logs, decode_transfer, save_to_db
+from telegram_bot.on_chain_alerts import alert
 from web3 import Web3
-from config import INFURA_RPC_URL
+from config import INFURA_PROJECT_ID, WHALE_TRACKER_THRESHOLD_USD
 
-w3 = Web3(Web3.HTTPProvider(INFURA_RPC_URL))
-last_block = None
+CHAINS = {
+    'ethereum': f'https://mainnet.infura.io/v3/{INFURA_PROJECT_ID}',
+    'polygon': f'https://polygon-mainnet.infura.io/v3/{INFURA_PROJECT_ID}',
+    'arbitrum': f'https://arbitrum-mainnet.infura.io/v3/{INFURA_PROJECT_ID}'
+}
 
-def run():
-    global last_block
-    
-    latest = w3.eth.block_number
-    if last_block is None:
-        last_block = latest - 100
-    
-    print(f"\n[{time.strftime('%H:%M:%S')}] Checking blocks {last_block} to {latest}")
-    
-    logs = get_transfer_logs(last_block, latest)
-    whales = 0
-    
-    for log in logs:
-        transfer = decode_transfer(log)
-        if transfer['amount_usd'] > 100000:
-            print(f"🐋 {transfer['token_symbol']}: ${transfer['amount_usd']:,.2f}")
-            save_to_db(transfer)
-            whales += 1
-    
-    last_block = latest
-    print(f"Found {whales} whales")
+last_blocks = {'ethereum': None, 'polygon': None, 'arbitrum': None}
+
+async def run():
+    print(f">>> Total chains to check: {len(CHAINS)}")
+    for chain_name, rpc_url in CHAINS.items():
+        print(f"\n>>> Starting {chain_name}")
+        try:
+            w3 = Web3(Web3.HTTPProvider(rpc_url))
+            print(f">>> Connected to {chain_name}")
+            latest = w3.eth.block_number
+            print(f"[{chain_name}] Latest block: {latest}")
+            
+            if last_blocks[chain_name] is None:
+                last_blocks[chain_name] = latest - 100
+            
+            print(f"\n[{time.strftime('%H:%M:%S')}] {chain_name.upper()} blocks {last_blocks[chain_name]} to {latest}")
+
+            try:
+                logs = get_transfer_logs(w3, last_blocks[chain_name], min(latest, last_blocks[chain_name] + 10), chain=chain_name)
+                print(f"Got {len(logs)} logs")
+            except Exception as e:
+                print(f"Logs error on {chain_name}: {e}")
+                continue
+            whales = 0
+            
+            for log in logs:
+                transfer = decode_transfer(log)
+                transfer['chain'] = chain_name
+                
+                if transfer['amount_usd'] > WHALE_TRACKER_THRESHOLD_USD:
+                    print(f"🐋 [{chain_name}] {transfer['token_symbol']}: ${transfer['amount_usd']:,.2f}")
+                    save_to_db(transfer)
+                    try:
+                        await alert(transfer, WHALE_TRACKER_THRESHOLD_USD)
+                    except Exception as e:
+                        print(f"Alert error: {e}")
+                    whales += 1
+            
+            last_blocks[chain_name] = latest
+            print(f"Found {whales} whales on {chain_name}")
+            print(f">>> Completed {chain_name}, moving to next chain")
+        
+        except Exception as e:
+            print(f"Error on {chain_name}: {e}")
 
 if __name__ == "__main__":
     while True:
-        try:
-            run()
-        except Exception as e:
-            print(f"Error: {e}")
-        
-        time.sleep(12)  # Poll every 12 seconds
+        asyncio.run(run())
+        time.sleep(12)

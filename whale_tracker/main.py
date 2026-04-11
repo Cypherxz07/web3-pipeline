@@ -16,14 +16,10 @@ CHAINS = {
 last_blocks = {'ethereum': None, 'polygon': None, 'arbitrum': None}
 
 async def run():
-    print(f">>> Total chains to check: {len(CHAINS)}")
     for chain_name, rpc_url in CHAINS.items():
-        print(f"\n>>> Starting {chain_name}")
         try:
             w3 = Web3(Web3.HTTPProvider(rpc_url))
-            print(f">>> Connected to {chain_name}")
             latest = w3.eth.block_number
-            print(f"[{chain_name}] Latest block: {latest}")
             
             if last_blocks[chain_name] is None:
                 last_blocks[chain_name] = latest - 100
@@ -32,12 +28,11 @@ async def run():
 
             try:
                 logs = get_transfer_logs(w3, last_blocks[chain_name], min(latest, last_blocks[chain_name] + 10), chain=chain_name)
-                print(f"Got {len(logs)} logs")
             except Exception as e:
-                print(f"Logs error on {chain_name}: {e}")
+                print(f"Error fetching logs on {chain_name}: {e}")
                 continue
-            whales = 0
             
+            whales = 0
             for log in logs:
                 transfer = decode_transfer(log)
                 transfer['chain'] = chain_name
@@ -52,8 +47,7 @@ async def run():
                     whales += 1
             
             last_blocks[chain_name] = latest
-            print(f"Found {whales} whales on {chain_name}")
-            print(f">>> Completed {chain_name}, moving to next chain")
+            print(f"Found {whales} whales")
         
         except Exception as e:
             print(f"Error on {chain_name}: {e}")

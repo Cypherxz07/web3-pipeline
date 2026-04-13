@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Whale Tracker</title>
+  <style>
+    body { font-family: monospace; padding: 20px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 10px; border-bottom: 1px solid #ccc; text-align: left; }
+    th { background: #f0f0f0; }
+    a { color: blue; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <h1>🐋 Whale Tracker</h1>
+  
+  <div>
+    <label>Chain: <select id="chain"><option>ethereum</option><option>polygon</option><option>arbitrum</option></select></label>
+    <label>Min: $<input type="number" id="minAmount" value="100000" min="100000" step="100000"></label>
+    <button onclick="loadWhales()">Refresh</button>
+  </div>
+
+  <table id="whalesTable">
+    <thead>
+      <tr><th>Token</th><th>Amount</th><th>From</th><th>To</th><th>Block</th><th>Tx</th></tr>
+    </thead>
+    <tbody id="whalesBody"></tbody>
+  </table>
+
+  <script>
+    async function loadWhales() {
+      const chain = document.getElementById('chain').value;
+      const minAmount = document.getElementById('minAmount').value;
+      
+      const res = await fetch(`http://localhost:5000/api/whales?chain=${chain}&min_amount=${minAmount}`);
+      const whales = await res.json();
+      
+      const tbody = document.getElementById('whalesBody');
+      tbody.innerHTML = whales.map(w => `
+        <tr>
+          <td>${w.token_symbol}</td>
+          <td>$${w.amount_usd.toLocaleString()}</td>
+          <td>${w.from_address.slice(0,6)}...${w.from_address.slice(-4)}</td>
+          <td>${w.to_address.slice(0,6)}...${w.to_address.slice(-4)}</td>
+          <td>${w.block_number}</td>
+          <td><a href="https://etherscan.io/tx/${w.tx_hash}" target="_blank">↗</a></td>
+        </tr>
+      `).join('');
+    }
+    
+    loadWhales();
+    setInterval(loadWhales, 5000);
+  </script>
+</body>
+</html>

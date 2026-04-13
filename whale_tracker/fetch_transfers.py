@@ -57,8 +57,9 @@ def decode_transfer(log):
     }
 
 def save_to_db(transfer):
-    conn = sqlite3.connect('whale_tracker/whale_tracker.db')
-    cursor = conn.cursor()
+    db_path = r'C:\Users\USER\Desktop\web3-pipeline\whale_tracker\whale_tracker.db'
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()  # ADD THIS LINE
     
     try:
         cursor.execute("""

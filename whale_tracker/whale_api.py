@@ -1,15 +1,16 @@
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 import sqlite3
-import json
 
 app = Flask(__name__)
+CORS(app)
 
-@app.route('/whales', methods=['GET'])
+@app.route('/api/whales', methods=['GET'])
 def get_whales():
     chain = request.args.get('chain', 'ethereum')
     min_amount = float(request.args.get('min_amount', 100000))
     
-    conn = sqlite3.connect('whale_tracker/whale_tracker.db')
+    conn = sqlite3.connect('./whale_tracker/whale_tracker.db')
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     

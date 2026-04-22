@@ -22,4 +22,7 @@ WORKDIR /app
 ENV PATH="/opt/venv/bin:$PATH"
 
 EXPOSE 5000
+
+ENV PYTHONPATH=/app:$PYTHONPATH
+
 CMD ["sh", "-c", "python -m whale_tracker.whale_api & python -m whale_tracker.main"]

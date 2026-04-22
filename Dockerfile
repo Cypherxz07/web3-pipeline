@@ -25,4 +25,4 @@ EXPOSE 5000
 
 ENV PYTHONPATH=/app:$PYTHONPATH
 
-CMD ["sh", "-c", "python -m whale_tracker.whale_api & python -m whale_tracker.main"]
+CMD ["sh", "-c", "cd /app && python whale_tracker/whale_api.py & python whale_tracker/main.py"]

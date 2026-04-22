@@ -1,7 +1,5 @@
 import time
-import sys
 import asyncio
-sys.path.append(r'C:\Users\USER\Desktop\web3-pipeline')
 from whale_tracker.fetch_transfers import get_transfer_logs, decode_transfer, save_to_db
 from telegram_bot.on_chain_alerts import alert
 from web3 import Web3

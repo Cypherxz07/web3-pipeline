@@ -27,4 +27,4 @@ ENV PATH="/opt/venv/bin:$PATH"
 EXPOSE 5000
 
 # Run the app
-CMD ["python", "whale_tracker/whale_api.py"]
+CMD ["sh", "-c", "cd whale_tracker && python whale_api.py & python main.py"]

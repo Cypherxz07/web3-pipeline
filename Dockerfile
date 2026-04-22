@@ -17,7 +17,9 @@ RUN python -m venv /opt/venv && \
 
 COPY . .
 
+WORKDIR /app/whale_tracker
+
 ENV PATH="/opt/venv/bin:$PATH"
 
 EXPOSE 5000
-CMD ["sh", "-c", "cd whale_tracker && python whale_api.py & python main.py"]
+CMD ["sh", "-c", "python whale_api.py & python main.py"]

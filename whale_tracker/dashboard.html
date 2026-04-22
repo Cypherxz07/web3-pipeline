@@ -109,12 +109,13 @@
     <h1>🐋 Whale Tracker</h1>
 
     <div class="controls">
-        <label>Chain: <select id="chain">
+        <label>Chain: <select id="chain" onchange="applyFilters()">
                 <option>ethereum</option>
                 <option>polygon</option>
                 <option>arbitrum</option>
             </select></label>
-        <label>Min Amount: <input type="number" id="minAmount" value="100000" min="1" step="100000"></label>
+        <label>Min Amount: <input type="number" id="minAmount" value="100000" min="1" step="100000"
+                onchange="applyFilters()"></label>
         <button onclick="applyFilters()">Apply Filters</button>
     </div>
 
@@ -133,38 +134,36 @@
     </table>
 
     <script>
-        let autoRefresh = true;
+        let whales = [];
 
         async function loadWhales() {
-            if (!autoRefresh) return;
-
             const chain = document.getElementById('chain').value;
-            const minAmount = document.getElementById('minAmount').value;
+            const minAmount = Number(document.getElementById('minAmount').value);
 
             const res = await fetch(`http://localhost:5000/api/whales?chain=${chain}&min_amount=${minAmount}`);
-            const whales = await res.json();
+            whales = await res.json();
+            renderTable();
+        }
 
+        function renderTable() {
             const tbody = document.getElementById('whalesBody');
             tbody.innerHTML = whales.map(w => `
-      <tr>
-        <td>${w.token_symbol}</td>
-        <td>$${w.amount_usd.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-        <td>${w.from_address.slice(0, 6)}...${w.from_address.slice(-4)}</td>
-        <td>${w.to_address.slice(0, 6)}...${w.to_address.slice(-4)}</td>
-        <td>${w.block_number}</td>
-        <td><a href="https://etherscan.io/tx/${w.tx_hash}" target="_blank">↗</a></td>
-      </tr>
-    `).join('');
+    <tr>
+      <td>${w.token_symbol}</td>
+      <td>$${w.amount_usd.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+      <td>${w.from_address.slice(0, 6)}...${w.from_address.slice(-4)}</td>
+      <td>${w.to_address.slice(0, 6)}...${w.to_address.slice(-4)}</td>
+      <td>${w.block_number}</td>
+      <td><a href="https://etherscan.io/tx/${w.tx_hash}" target="_blank">↗</a></td>
+    </tr>
+  `).join('');
         }
 
         function applyFilters() {
-            autoRefresh = false;
             loadWhales();
-            setTimeout(() => { autoRefresh = true; }, 30000);
         }
 
-        loadWhales();
-        setInterval(loadWhales, 5000);
+        // Empty on load, user clicks Apply Filters
     </script>
 </body>
 

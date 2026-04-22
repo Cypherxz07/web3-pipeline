@@ -1,6 +1,4 @@
 import asyncio
-import sys
-sys.path.append(r'C:\Users\USER\Desktop\web3-pipeline')
 from config import TELEGRAM_BOT_TOKEN_2, TELEGRAM_CHAT_ID
 from telegram import Bot
 

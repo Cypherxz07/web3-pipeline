@@ -11,9 +11,13 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN python -m venv /opt/venv && \
+    /opt/venv/bin/pip install --upgrade pip && \
+    /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
 
 COPY . .
+
+ENV PATH="/opt/venv/bin:$PATH"
 
 EXPOSE 5000
 CMD ["sh", "-c", "cd whale_tracker && python whale_api.py & python main.py"]

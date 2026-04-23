@@ -1,3 +1,4 @@
+import importlib.util
 import os
 import sys
 import time
@@ -5,10 +6,15 @@ import asyncio
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
+config_path = os.path.join(ROOT_DIR, 'config.py')
+spec = importlib.util.spec_from_file_location('config', config_path)
+config = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(config)
 from whale_tracker.fetch_transfers import get_transfer_logs, decode_transfer, save_to_db
 from telegram_bot.on_chain_alerts import alert
 from web3 import Web3
-from config import INFURA_PROJECT_ID, WHALE_TRACKER_THRESHOLD_USD
+INFURA_PROJECT_ID = config.INFURA_PROJECT_ID
+WHALE_TRACKER_THRESHOLD_USD = config.WHALE_TRACKER_THRESHOLD_USD
 
 CHAINS = {
     'ethereum': f'https://mainnet.infura.io/v3/{INFURA_PROJECT_ID}',

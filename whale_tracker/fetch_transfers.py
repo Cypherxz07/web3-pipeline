@@ -1,9 +1,15 @@
+import importlib.util
 import os
-import sys
 from web3 import Web3
 import sqlite3
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import INFURA_PROJECT_ID, WHALE_TRACKER_TRACKED_TOKENS
+
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+config_path = os.path.join(ROOT_DIR, 'config.py')
+spec = importlib.util.spec_from_file_location('config', config_path)
+config = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(config)
+INFURA_PROJECT_ID = config.INFURA_PROJECT_ID
+WHALE_TRACKER_TRACKED_TOKENS = config.WHALE_TRACKER_TRACKED_TOKENS
 
 TRACKED_TOKENS = {Web3.to_checksum_address(addr): symbol for addr, symbol in WHALE_TRACKER_TRACKED_TOKENS.items()}
 

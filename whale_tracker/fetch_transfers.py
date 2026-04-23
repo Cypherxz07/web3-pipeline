@@ -1,7 +1,10 @@
-from web3 import Web3
+import os
 import sys
+from web3 import Web3
 import sqlite3
-sys.path.append(r'C:\Users\USER\Desktop\web3-pipeline')
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
 from config import INFURA_PROJECT_ID, WHALE_TRACKER_TRACKED_TOKENS
 
 TRACKED_TOKENS = {Web3.to_checksum_address(addr): symbol for addr, symbol in WHALE_TRACKER_TRACKED_TOKENS.items()}

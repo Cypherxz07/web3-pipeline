@@ -1,5 +1,10 @@
+import os
+import sys
 import time
 import asyncio
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
 from whale_tracker.fetch_transfers import get_transfer_logs, decode_transfer, save_to_db
 from telegram_bot.on_chain_alerts import alert
 from web3 import Web3

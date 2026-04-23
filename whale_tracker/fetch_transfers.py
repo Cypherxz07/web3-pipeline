@@ -10,7 +10,7 @@ config = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(config)
 WHALE_TRACKER_TRACKED_TOKENS = config.WHALE_TRACKER_TRACKED_TOKENS
 
-TRACKED_TOKENS = {Web3.to_checksum_address(addr): symbol for addr, symbol in WHALE_TRACKER_TRACKED_TOKENS.items()}
+TRACKED_TOKENS = {Web3.toChecksumAddress(addr): symbol for addr, symbol in WHALE_TRACKER_TRACKED_TOKENS.items()}
 
 DECIMALS = {
     '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48': 6,

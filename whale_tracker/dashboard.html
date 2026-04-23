@@ -163,6 +163,16 @@
             loadWhales();
         }
 
+        const API_URL = 'https://web3-pipeline-1.onrender.com';
+
+        async function loadWhales() {
+            const chain = document.getElementById('chain').value;
+            const minAmount = Number(document.getElementById('minAmount').value);
+
+            const res = await fetch(`${API_URL}/api/whales?chain=${chain}&min_amount=${minAmount}`);
+            whales = await res.json();
+            renderTable();
+        }
         // Empty on load, user clicks Apply Filters
     </script>
 </body>

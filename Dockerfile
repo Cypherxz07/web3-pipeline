@@ -25,4 +25,7 @@ EXPOSE 5000
 
 ENV PYTHONPATH=/app:$PYTHONPATH
 
-CMD ["sh", "-c", "cd /app && python whale_tracker/whale_api.py & python whale_tracker/main.py"]
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+CMD ["/app/entrypoint.sh"]

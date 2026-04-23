@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import os
 import sqlite3
@@ -6,6 +6,10 @@ db_path = os.path.join(os.path.dirname(__file__), 'whale_tracker.db')
 
 app = Flask(__name__)
 CORS(app)
+
+@app.route('/', methods=['GET'])
+def index():
+    return send_from_directory(os.path.dirname(__file__), 'dashboard.html')
 
 @app.route('/api/whales', methods=['GET'])
 def get_whales():

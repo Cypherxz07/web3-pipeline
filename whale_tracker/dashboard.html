@@ -140,7 +140,7 @@
             const chain = document.getElementById('chain').value;
             const minAmount = Number(document.getElementById('minAmount').value);
 
-            const res = await fetch(`http://localhost:5000/api/whales?chain=${chain}&min_amount=${minAmount}`);
+            const res = await fetch(`/api/whales?chain=${chain}&min_amount=${minAmount}`);
             whales = await res.json();
             renderTable();
         }

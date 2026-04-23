@@ -8,7 +8,6 @@ config_path = os.path.join(ROOT_DIR, 'config.py')
 spec = importlib.util.spec_from_file_location('config', config_path)
 config = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(config)
-INFURA_PROJECT_ID = config.INFURA_PROJECT_ID
 WHALE_TRACKER_TRACKED_TOKENS = config.WHALE_TRACKER_TRACKED_TOKENS
 
 TRACKED_TOKENS = {Web3.to_checksum_address(addr): symbol for addr, symbol in WHALE_TRACKER_TRACKED_TOKENS.items()}

@@ -27,18 +27,22 @@ last_blocks = {'ethereum': None, 'polygon': None, 'arbitrum': None}
 async def run():
     for chain_name, rpc_url in CHAINS.items():
         try:
+            print(f"[{chain_name.upper()}] Connecting to RPC...")
             w3 = Web3(Web3.HTTPProvider(rpc_url))
             latest = w3.eth.block_number
+            print(f"[{chain_name.upper()}] Connected. Latest block: {latest}")
             
             if last_blocks[chain_name] is None:
                 last_blocks[chain_name] = latest - 100
+                print(f"[{chain_name.upper()}] Starting from block {last_blocks[chain_name]}")
             
             print(f"\n[{time.strftime('%H:%M:%S')}] {chain_name.upper()} blocks {last_blocks[chain_name]} to {latest}")
 
             try:
                 logs = get_transfer_logs(w3, last_blocks[chain_name], min(latest, last_blocks[chain_name] + 10), chain=chain_name)
+                print(f"[{chain_name.upper()}] Found {len(logs)} logs")
             except Exception as e:
-                print(f"Error fetching logs on {chain_name}: {e}")
+                print(f"[{chain_name.upper()}] Error fetching logs: {e}")
                 continue
             
             whales = 0
@@ -62,8 +66,17 @@ async def run():
             print(f"Error on {chain_name}: {e}")
 
 def start_worker():
+    print("[WORKER] Starting whale tracker worker...")
+    attempt = 0
     while True:
-        asyncio.run(run())
+        attempt += 1
+        try:
+            print(f"[WORKER] Poll cycle #{attempt} starting...")
+            asyncio.run(run())
+        except Exception as e:
+            print(f"[WORKER] ERROR in poll cycle #{attempt}: {e}")
+            import traceback
+            traceback.print_exc()
         time.sleep(12)
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@ import os
 import sys
 import time
 import asyncio
+import requests
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
@@ -22,13 +23,29 @@ CHAINS = {
     'arbitrum': f'https://arbitrum-mainnet.infura.io/v3/{INFURA_PROJECT_ID}'
 }
 
+# Verify config at startup
+if not INFURA_PROJECT_ID:
+    print("[ERROR] INFURA_PROJECT_ID is not set! Worker will fail.")
+else:
+    print(f"[CONFIG] INFURA_PROJECT_ID loaded: {INFURA_PROJECT_ID[:10]}...")
+    print(f"[CONFIG] WHALE_TRACKER_THRESHOLD_USD: ${WHALE_TRACKER_THRESHOLD_USD}")
+
 last_blocks = {'ethereum': None, 'polygon': None, 'arbitrum': None}
 
 async def run():
     for chain_name, rpc_url in CHAINS.items():
         try:
             print(f"[{chain_name.upper()}] Connecting to RPC...")
-            w3 = Web3(Web3.HTTPProvider(rpc_url))
+            print(f"[{chain_name.upper()}] RPC URL: {rpc_url[:50]}...")
+            from requests.adapters import HTTPAdapter
+            from urllib3.util.retry import Retry
+            session = requests.Session()
+            retries = Retry(total=3, backoff_factor=0.5)
+            adapter = HTTPAdapter(max_retries=retries)
+            session.mount('http://', adapter)
+            session.mount('https://', adapter)
+            w3 = Web3(Web3.HTTPProvider(rpc_url, session=session, request_kwargs={'timeout': 10}))
+            print(f"[{chain_name.upper()}] Checking RPC connection...")
             latest = w3.eth.block_number
             print(f"[{chain_name.upper()}] Connected. Latest block: {latest}")
             

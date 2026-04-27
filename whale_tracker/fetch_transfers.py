@@ -63,15 +63,15 @@ def decode_transfer(log):
     }
 
 def save_to_db(transfer):
-    db_path = r'C:\Users\USER\Desktop\web3-pipeline\whale_tracker\whale_tracker.db'
+    db_path = os.path.join(os.path.dirname(__file__), 'whale_tracker.db')
     conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()  # ADD THIS LINE
-    
+    cursor = conn.cursor()
+
     try:
         cursor.execute("""
         INSERT OR IGNORE INTO transfers 
-        (tx_hash, block_number, from_address, to_address, token_address, token_symbol, amount, amount_usd)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        (tx_hash, block_number, from_address, to_address, token_address, token_symbol, amount, amount_usd, chain)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             transfer['tx_hash'],
             transfer['block'],
@@ -80,7 +80,8 @@ def save_to_db(transfer):
             transfer['token'],
             transfer['token_symbol'],
             transfer['amount'],
-            transfer['amount_usd']
+            transfer['amount_usd'],
+            transfer.get('chain', 'ethereum')
         ))
         conn.commit()
     except Exception as e:

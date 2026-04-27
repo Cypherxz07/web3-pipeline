@@ -25,6 +25,4 @@ WHALE_TRACKER_TRACKED_TOKENS = {
 }
 EOF
 fi
-python whale_tracker/whale_api.py &
-python whale_tracker/main.py &
-wait
+python whale_tracker/whale_api.py

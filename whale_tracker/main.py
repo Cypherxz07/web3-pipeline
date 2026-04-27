@@ -61,7 +61,10 @@ async def run():
         except Exception as e:
             print(f"Error on {chain_name}: {e}")
 
-if __name__ == "__main__":
+def start_worker():
     while True:
         asyncio.run(run())
         time.sleep(12)
+
+if __name__ == "__main__":
+    start_worker()

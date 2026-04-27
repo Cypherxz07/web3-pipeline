@@ -2,10 +2,17 @@ from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import os
 import sqlite3
+import threading
+
+from whale_tracker.main import start_worker
+
 db_path = os.path.join(os.path.dirname(__file__), 'whale_tracker.db')
 
 app = Flask(__name__)
 CORS(app)
+
+worker_thread = threading.Thread(target=start_worker, daemon=True)
+worker_thread.start()
 
 @app.route('/', methods=['GET'])
 def index():
@@ -35,4 +42,4 @@ def get_whales():
 
 if __name__ == "__main__":
     port = int(os.getenv('PORT', '5000'))
-    app.run(debug=True, host='0.0.0.0', port=port)
+    app.run(debug=True, host='0.0.0.0', port=port, use_reloader=False)

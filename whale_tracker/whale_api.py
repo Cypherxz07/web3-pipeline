@@ -40,6 +40,14 @@ def get_whales():
     
     return jsonify([dict(row) for row in rows])
 
+@app.route('/api/cron', methods=['GET'])
+def cron_trigger():
+    import subprocess
+    import os
+    os.chdir('/app/whale_tracker')
+    subprocess.Popen(['python', 'main.py'])
+    return {'status': 'cron triggered'}, 200
+
 if __name__ == "__main__":
     port = int(os.getenv('PORT', '5000'))
     app.run(debug=True, host='0.0.0.0', port=port, use_reloader=False)

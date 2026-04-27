@@ -19,6 +19,9 @@ On-chain analytics scripts built during a 90-day Web3 learning journey.
 
 ## Dashboard
 
+**Whale Tracker** (Real-time Ethereum transfers):
+https://web3-pipeline-1.onrender.com/
+
 Live USDC Market Intelligence dashboard:
 https://dune.com/0xkairo/usdc-market-intelligence
 

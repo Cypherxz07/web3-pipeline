@@ -1,0 +1,10 @@
+name: Whale Tracker Cron
+on:
+  schedule:
+    - cron: '*/12 * * * *'
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger API
+        run: curl https://web3-pipeline-1.onrender.com/api/cron

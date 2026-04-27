@@ -140,9 +140,13 @@
             const chain = document.getElementById('chain').value;
             const minAmount = Number(document.getElementById('minAmount').value);
 
-            const res = await fetch(`/api/whales?chain=${chain}&min_amount=${minAmount}`);
-            whales = await res.json();
-            renderTable();
+            try {
+                const res = await fetch(`/api/whales?chain=${chain}&min_amount=${minAmount}`);
+                whales = await res.json();
+                renderTable();
+            } catch (error) {
+                console.error('Failed to fetch whales:', error);
+            }
         }
 
         function renderTable() {
@@ -163,17 +167,11 @@
             loadWhales();
         }
 
-        const API_URL = 'https://web3-pipeline-1.onrender.com';
+        // Load data on page load
+        loadWhales();
 
-        async function loadWhales() {
-            const chain = document.getElementById('chain').value;
-            const minAmount = Number(document.getElementById('minAmount').value);
-
-            const res = await fetch(`${API_URL}/api/whales?chain=${chain}&min_amount=${minAmount}`);
-            whales = await res.json();
-            renderTable();
-        }
-        // Empty on load, user clicks Apply Filters
+        // Auto-refresh every 10 seconds
+        setInterval(loadWhales, 10000);
     </script>
 </body>
 

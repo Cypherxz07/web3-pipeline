@@ -40,10 +40,5 @@ async def alert(transfer, threshold):
     user_filter = filters.get(str(TELEGRAM_CHAT_ID), {})
     
     if user_filter:
-        if transfer['chain'] != user_filter.get('chain', 'ethereum'):
-            return
-        if transfer['amount_usd'] < user_filter.get('min_amount', threshold):
-            return
-    
-    if transfer['amount_usd'] > threshold:
-        await send_whale_alert(transfer, threshold)
+        if transfer['chain'] == user_filter.get('chain', 'ethereum') and transfer['amount_usd'] >= user_filter.get('min_amount', threshold):
+            await send_whale_alert(transfer, threshold)

@@ -71,7 +71,7 @@ async def start_tg_bot():
     app_tg.add_handler(CommandHandler(["set", "set_filter"], set_filter))
     app_tg.add_handler(CommandHandler("status", get_filter_status))
     print("Telegram polling bot started.")
-    await app_tg.run_polling()
+    await app_tg.run_polling(stop_signals=())
 
 tg_thread = threading.Thread(target=lambda: __import__('asyncio').run(start_tg_bot()), daemon=True)
 tg_thread.start()

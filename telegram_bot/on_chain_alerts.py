@@ -8,7 +8,7 @@ CHAIN_EXPLORERS = {
     'arbitrum': 'arbiscan.io'
 }
 
-async def send_whale_alert(transfer, threshold):
+async def send_whale_alert(transfer, threshold, chat_id):
     """Send whale transfer alert to Telegram"""
     bot = Bot(token=TELEGRAM_BOT_TOKEN_2)
     chain = transfer.get('chain', 'ethereum')
@@ -25,7 +25,7 @@ Tx: https://{explorer}/tx/{transfer['tx_hash']}
 Block: {transfer['block']}
 """
     
-    await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message, parse_mode='Markdown')
+    await bot.send_message(chat_id=chat_id, text=message, parse_mode='Markdown')
 
 def load_filters():
     import json, os
@@ -35,21 +35,20 @@ def load_filters():
             return json.load(f)
     return {}
 
-def get_user_filter():
-    filters = load_filters()
-    return filters.get(str(TELEGRAM_CHAT_ID))
-
 async def alert(transfer, threshold):
-    user_filter = get_user_filter()
-    if not user_filter:
-        print("Telegram alert skipped: no filter set for this chat. Use /set <chain> <min_amount> to enable alerts.")
+    filters = load_filters()
+    if not filters:
+        print("Telegram alert skipped: no filter set. Use /set <chain> <min_amount> to enable alerts.")
         return False
 
-    if transfer['chain'] != user_filter.get('chain', 'ethereum'):
-        return False
+    sent_any = False
+    for chat_id, user_filter in filters.items():
+        if transfer['chain'] != user_filter.get('chain', 'ethereum'):
+            continue
+        if transfer['amount_usd'] < user_filter.get('min_amount', threshold):
+            continue
 
-    if transfer['amount_usd'] < user_filter.get('min_amount', threshold):
-        return False
+        await send_whale_alert(transfer, threshold, chat_id)
+        sent_any = True
 
-    await send_whale_alert(transfer, threshold)
-    return True
+    return sent_any

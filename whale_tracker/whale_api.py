@@ -52,10 +52,25 @@ async def set_filter(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_filters(filters)
 
     await update.message.reply_text(f"✅ Alerts set for {chain.upper()} transactions above ${min_amount:,.0f}")
+    print(f"Telegram filter saved for chat {chat_id}: {filters[chat_id]}")
+
+async def get_filter_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = str(update.effective_chat.id)
+    filters = load_filters()
+    user_filter = filters.get(chat_id)
+    if not user_filter:
+        await update.message.reply_text("No filter set. Use /set <chain> <min_amount> to enable alerts.")
+        return
+
+    await update.message.reply_text(
+        f"✅ Current filter:\nChain: {user_filter['chain'].upper()}\nMinimum amount: ${user_filter['min_amount']:,.0f}"
+    )
 
 async def start_tg_bot():
     app_tg = Application.builder().token(TELEGRAM_BOT_TOKEN_2).build()
     app_tg.add_handler(CommandHandler(["set", "set_filter"], set_filter))
+    app_tg.add_handler(CommandHandler("status", get_filter_status))
+    print("Telegram polling bot started.")
     await app_tg.run_polling()
 
 tg_thread = threading.Thread(target=lambda: __import__('asyncio').run(start_tg_bot()), daemon=True)

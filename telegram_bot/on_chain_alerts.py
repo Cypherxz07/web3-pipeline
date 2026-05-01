@@ -35,10 +35,21 @@ def load_filters():
             return json.load(f)
     return {}
 
-async def alert(transfer, threshold):
+def get_user_filter():
     filters = load_filters()
-    user_filter = filters.get(str(TELEGRAM_CHAT_ID), {})
-    
-    if user_filter:
-        if transfer['chain'] == user_filter.get('chain', 'ethereum') and transfer['amount_usd'] >= user_filter.get('min_amount', threshold):
-            await send_whale_alert(transfer, threshold)
+    return filters.get(str(TELEGRAM_CHAT_ID))
+
+async def alert(transfer, threshold):
+    user_filter = get_user_filter()
+    if not user_filter:
+        print("Telegram alert skipped: no filter set for this chat.")
+        return False
+
+    if transfer['chain'] != user_filter.get('chain', 'ethereum'):
+        return False
+
+    if transfer['amount_usd'] < user_filter.get('min_amount', threshold):
+        return False
+
+    await send_whale_alert(transfer, threshold)
+    return True

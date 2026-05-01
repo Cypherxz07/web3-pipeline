@@ -1,4 +1,5 @@
 import sys
+import os
 sys.path.append(r'C:\Users\USER\Desktop\web3-pipeline')
 import time
 import json
@@ -31,6 +32,16 @@ KNOWN_ADDRESSES = {
 }
 
 ADDRESS_CACHE = {}
+
+def load_filters():
+    filters_file = os.path.join(os.path.dirname(__file__), '../whale_tracker/user_filters.json')
+    if os.path.exists(filters_file):
+        with open(filters_file) as f:
+            return json.load(f)
+    return {}
+
+def get_user_filter():
+    return load_filters().get(str(TELEGRAM_CHAT_ID))
 
 # Daily tracking
 daily_alert_count = 0
@@ -144,9 +155,17 @@ while True:
         label, timestamp, block_number, amount_usdc, \
         sender, sender_label, receiver, receiver_label, tx_hash = alert
 
-        # Increment daily counters
-        daily_alert_count += 1
-        daily_volume += amount_usdc
+        user_filter = get_user_filter()
+        if not user_filter:
+            print("No telegram alert filter set for this chat. Skipping alert until /set_filter is configured.")
+            continue
+
+        if user_filter.get('chain', 'ethereum').lower() != 'ethereum':
+            print(f"Telegram filter chain is set to {user_filter['chain']}. This bot only monitors Ethereum, skipping alert.")
+            continue
+
+        if amount_usdc < user_filter.get('min_amount', THRESHOLD_RAW / 1e6):
+            continue
 
         # Terminal output
         print(f"{label}")

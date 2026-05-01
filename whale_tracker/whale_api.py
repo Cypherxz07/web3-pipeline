@@ -30,23 +30,32 @@ def save_filters(filters):
         json.dump(filters, f)
 
 async def set_filter(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Usage: /set_filter ethereum 500000"""
+    """Usage: /set <chain> <min_amount>"""
     if len(context.args) < 2:
-        await update.message.reply_text("Usage: /set_filter <chain> <min_amount>\nExample: /set_filter ethereum 500000")
+        await update.message.reply_text("Usage: /set <chain> <min_amount>\nExample: /set ethereum 500000")
         return
-    
-    chain = context.args[0]
-    min_amount = float(context.args[1])
-    
+
+    chain = context.args[0].lower()
+    try:
+        min_amount = float(context.args[1])
+    except ValueError:
+        await update.message.reply_text("Please provide a numeric minimum amount. Example: /set ethereum 500000")
+        return
+
+    if chain not in {"ethereum", "polygon", "arbitrum"}:
+        await update.message.reply_text("Supported chains: ethereum, polygon, arbitrum. Example: /set ethereum 500000")
+        return
+
+    chat_id = str(update.effective_chat.id)
     filters = load_filters()
-    filters[str(TELEGRAM_CHAT_ID)] = {'chain': chain, 'min_amount': min_amount}
+    filters[chat_id] = {'chain': chain, 'min_amount': min_amount}
     save_filters(filters)
-    
-    await update.message.reply_text(f"✅ Alerts: {chain.upper()} > ${min_amount:,.0f}")
+
+    await update.message.reply_text(f"✅ Alerts set for {chain.upper()} transactions above ${min_amount:,.0f}")
 
 async def start_tg_bot():
     app_tg = Application.builder().token(TELEGRAM_BOT_TOKEN_2).build()
-    app_tg.add_handler(CommandHandler("set_filter", set_filter))
+    app_tg.add_handler(CommandHandler(["set", "set_filter"], set_filter))
     await app_tg.run_polling()
 
 tg_thread = threading.Thread(target=lambda: __import__('asyncio').run(start_tg_bot()), daemon=True)

@@ -42,7 +42,7 @@ def get_user_filter():
 async def alert(transfer, threshold):
     user_filter = get_user_filter()
     if not user_filter:
-        print("Telegram alert skipped: no filter set for this chat.")
+        print("Telegram alert skipped: no filter set for this chat. Use /set <chain> <min_amount> to enable alerts.")
         return False
 
     if transfer['chain'] != user_filter.get('chain', 'ethereum'):

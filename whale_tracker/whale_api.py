@@ -20,9 +20,6 @@ CORS(app)
 worker_thread = threading.Thread(target=start_worker, daemon=True)
 worker_thread.start()
 
-tg_thread = threading.Thread(target=lambda: __import__('asyncio').run(start_tg_bot()), daemon=False)
-tg_thread.start()
-
 @app.route('/', methods=['GET'])
 def index():
     return send_from_directory(os.path.dirname(__file__), 'dashboard.html')

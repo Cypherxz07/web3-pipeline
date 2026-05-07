@@ -78,7 +78,7 @@ async def start_tg_bot():
     print("Telegram polling bot started.")
     await app_tg.run_polling(stop_signals=())
 
-tg_thread = threading.Thread(target=lambda: __import__('asyncio').run(start_tg_bot()), daemon=True)
+tg_thread = threading.Thread(target=lambda: __import__('asyncio').run(start_tg_bot()), daemon=False)
 tg_thread.start()
 
 @app.route('/', methods=['GET'])
@@ -116,4 +116,5 @@ def cron_trigger():
 
 if __name__ == "__main__":
     port = int(os.getenv('PORT', '5000'))
-    app.run(debug=True, host='0.0.0.0', port=port, use_reloader=False)
+    # Use threaded=True to allow concurrent requests
+    app.run(debug=False, host='0.0.0.0', port=port, use_reloader=False, threaded=True)

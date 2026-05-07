@@ -1,11 +1,16 @@
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import os
+import sys
 import sqlite3
 import threading
 import json
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
+
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
 
 from whale_tracker.main import start_worker
 from config import TELEGRAM_BOT_TOKEN_2, TELEGRAM_CHAT_ID

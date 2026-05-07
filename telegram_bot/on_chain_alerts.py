@@ -29,10 +29,15 @@ Block: {transfer['block']}
 
 def load_filters():
     import json, os
-    filters_file = os.path.join(os.path.dirname(__file__), '../whale_tracker/user_filters.json')
-    if os.path.exists(filters_file):
-        with open(filters_file) as f:
-            return json.load(f)
+    root_filters = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', 'user_filters.json'))
+    legacy_filters = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', 'whale_tracker', 'user_filters.json'))
+
+    if os.path.exists(root_filters):
+        return json.load(open(root_filters))
+    if os.path.exists(legacy_filters):
+        return json.load(open(legacy_filters))
+
+    print(f"No filter file found. Checked: {root_filters} and {legacy_filters}")
     return {}
 
 async def alert(transfer, threshold):

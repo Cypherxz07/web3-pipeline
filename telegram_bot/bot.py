@@ -212,5 +212,18 @@ async def main():
 
     await app.run_polling(stop_signals=())
 
+async def main():
+    app = Application.builder().token(TELEGRAM_BOT_TOKEN_2).build()
+    app.add_handler(CommandHandler(["set", "set_filter"], set_filter))
+    app.add_handler(CommandHandler("status", get_filter_status))
+    app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(CallbackQueryHandler(button_callback))
+
+    print("🐋 Telegram Whale Tracker Bot started!")
+    print("Available commands: /start, /set, /status")
+    print("Filter file:", filters_file)
+
+    await app.run_polling(stop_signals=())
+
 if __name__ == "__main__":
     asyncio.run(main())

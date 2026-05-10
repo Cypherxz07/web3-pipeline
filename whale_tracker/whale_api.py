@@ -28,34 +28,38 @@ telegram_app = None
 if os.getenv('TELEGRAM_BOT_TOKEN_2'):
     telegram_app = Application.builder().token(os.getenv('TELEGRAM_BOT_TOKEN_2')).build()
     add_handlers_to_app(telegram_app)
-    # Initialize the application asynchronously
-    import asyncio
-    asyncio.run(telegram_app.initialize())
-    print("🐋 Telegram bot initialized in Flask app")
     
-    # Set bot commands for menu
-    from telegram import BotCommand
-    commands = [
-        BotCommand("start", "Show welcome message and options"),
-        BotCommand("set", "Set alert filter (chain and amount)"),
-        BotCommand("status", "Check current filter and status"),
-        BotCommand("stop", "Stop receiving alerts"),
-        BotCommand("resume", "Resume receiving alerts")
-    ]
-    asyncio.run(telegram_app.bot.set_my_commands(commands))
-    print("🐋 Telegram bot commands set")
+    # Set up Telegram bot in a single async operation
+    async def setup_telegram():
+        await telegram_app.initialize()
+        print("🐋 Telegram bot initialized in Flask app")
+        
+        # Set bot commands for menu
+        from telegram import BotCommand
+        commands = [
+            BotCommand("start", "Show welcome message and options"),
+            BotCommand("set", "Set alert filter (chain and amount)"),
+            BotCommand("status", "Check current filter and status"),
+            BotCommand("stop", "Stop receiving alerts"),
+            BotCommand("resume", "Resume receiving alerts")
+        ]
+        await telegram_app.bot.set_my_commands(commands)
+        print("🐋 Telegram bot commands set")
+        
+        # Set webhook synchronously to avoid event loop issues
+        base_url = os.getenv('RENDER_EXTERNAL_URL', 'https://web3-pipeline-1.onrender.com')
+        webhook_url = f"{base_url}/telegram"
+        bot_token = os.getenv('TELEGRAM_BOT_TOKEN_2')
+        set_webhook_url = f"https://api.telegram.org/bot{bot_token}/setWebhook"
+        data = {"url": webhook_url}
+        response = requests.post(set_webhook_url, data=data)
+        if response.status_code == 200:
+            print("🐋 Telegram webhook set successfully")
+        else:
+            print(f"🐋 Failed to set Telegram webhook: {response.text}")
     
-    # Set webhook synchronously to avoid event loop issues
-    base_url = os.getenv('RENDER_EXTERNAL_URL', 'https://web3-pipeline-1.onrender.com')
-    webhook_url = f"{base_url}/telegram"
-    bot_token = os.getenv('TELEGRAM_BOT_TOKEN_2')
-    set_webhook_url = f"https://api.telegram.org/bot{bot_token}/setWebhook"
-    data = {"url": webhook_url}
-    response = requests.post(set_webhook_url, data=data)
-    if response.status_code == 200:
-        print("🐋 Telegram webhook set successfully")
-    else:
-        print(f"🐋 Failed to set Telegram webhook: {response.text}")
+    # Run all async setup in one call
+    asyncio.run(setup_telegram())
 
 
 worker_thread = threading.Thread(target=start_worker, daemon=True)

@@ -33,6 +33,18 @@ if os.getenv('TELEGRAM_BOT_TOKEN_2'):
     asyncio.run(telegram_app.initialize())
     print("🐋 Telegram bot initialized in Flask app")
     
+    # Set bot commands for menu
+    from telegram import BotCommand
+    commands = [
+        BotCommand("start", "Show welcome message and options"),
+        BotCommand("set", "Set alert filter (chain and amount)"),
+        BotCommand("status", "Check current filter and status"),
+        BotCommand("stop", "Stop receiving alerts"),
+        BotCommand("resume", "Resume receiving alerts")
+    ]
+    asyncio.run(telegram_app.bot.set_my_commands(commands))
+    print("🐋 Telegram bot commands set")
+    
     # Set webhook synchronously to avoid event loop issues
     base_url = os.getenv('RENDER_EXTERNAL_URL', 'https://web3-pipeline-1.onrender.com')
     webhook_url = f"{base_url}/telegram"

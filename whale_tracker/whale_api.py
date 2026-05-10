@@ -80,8 +80,42 @@ if os.getenv('TELEGRAM_BOT_TOKEN_2'):
             print(f"🐋 Bot token test failed: {test_response.text}")
 
 
-worker_thread = threading.Thread(target=start_worker, daemon=True)
-worker_thread.start()
+def maintain_webhook():
+    """Periodically check and reset webhook if needed"""
+    import time
+    while True:
+        try:
+            bot_token = os.getenv('TELEGRAM_BOT_TOKEN_2')
+            if bot_token:
+                # Check current webhook
+                info_response = requests.get(f"https://api.telegram.org/bot{bot_token}/getWebhookInfo", timeout=10)
+                if info_response.status_code == 200:
+                    info = info_response.json()
+                    current_url = info.get('result', {}).get('url', '')
+                    expected_url = f"{os.getenv('RENDER_EXTERNAL_URL', 'https://web3-pipeline-1.onrender.com')}/telegram"
+                    
+                    if current_url != expected_url:
+                        print(f"🐋 Webhook URL mismatch. Current: {current_url}, Expected: {expected_url}. Resetting...")
+                        # Reset webhook
+                        set_response = requests.post(f"https://api.telegram.org/bot{bot_token}/setWebhook", 
+                                                   data={"url": expected_url}, timeout=10)
+                        if set_response.status_code == 200:
+                            print("🐋 Webhook reset successfully")
+                        else:
+                            print(f"🐋 Failed to reset webhook: {set_response.text}")
+                    else:
+                        print("🐋 Webhook check passed")
+                else:
+                    print(f"🐋 Failed to get webhook info: {info_response.text}")
+        except Exception as e:
+            print(f"🐋 Webhook maintenance error: {e}")
+        
+        # Check every 5 minutes
+        time.sleep(300)
+
+# Start webhook maintenance thread
+webhook_thread = threading.Thread(target=maintain_webhook, daemon=True)
+webhook_thread.start()
 
 @app.route('/telegram', methods=['POST'])
 def telegram_webhook():

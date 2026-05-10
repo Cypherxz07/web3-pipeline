@@ -56,7 +56,6 @@ async def alert(transfer, threshold):
 
     import time
     current_time = time.time()
-    cooldown_seconds = 60  # 1 minute cooldown between alerts per user
 
     sent_any = False
     for chat_id, user_filter in filters.items():
@@ -67,7 +66,8 @@ async def alert(transfer, threshold):
         if not user_filter.get('enabled', True):
             continue
 
-        # Rate limiting
+        # Rate limiting - configurable per user
+        cooldown_seconds = user_filter.get('cooldown', 60)  # Default 60 seconds
         last_time = last_alert_times.get(chat_id, 0)
         if current_time - last_time < cooldown_seconds:
             continue  # Skip if too recent

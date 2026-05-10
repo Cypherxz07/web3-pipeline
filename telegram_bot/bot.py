@@ -136,15 +136,18 @@ async def button_callback(update: Update, context):
             )
         else:
             enabled = user_filter.get('enabled', True)
+            cooldown = user_filter.get('cooldown', 60)
+            cooldown_text = f"{cooldown//60}min" if cooldown >= 60 else f"{cooldown}s"
             status_text = "✅ Active" if enabled else "🛑 Stopped"
             keyboard = [
                 [InlineKeyboardButton("Change Filter", callback_data="set_filter")],
                 [InlineKeyboardButton("Test Alert", callback_data="test_alert")],
-                [InlineKeyboardButton("Stop Alerts" if enabled else "Resume Alerts", callback_data="toggle_alerts")]
+                [InlineKeyboardButton("Stop Alerts" if enabled else "Resume Alerts", callback_data="toggle_alerts")],
+                [InlineKeyboardButton(f"Rate Limit: {cooldown_text}", callback_data="set_cooldown")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             await query.edit_message_text(
-                f"Status: {status_text}\nChain: {user_filter['chain'].upper()}\nMinimum amount: ${user_filter['min_amount']:,.0f}",
+                f"Status: {status_text}\nChain: {user_filter['chain'].upper()}\nMinimum amount: ${user_filter['min_amount']:,.0f}\nRate limit: {cooldown_text} between alerts",
                 reply_markup=reply_markup
             )
 
@@ -161,6 +164,36 @@ async def button_callback(update: Update, context):
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text(
             f"✅ Alerts {new_status}!",
+            reply_markup=reply_markup
+        )
+
+    elif data == "set_cooldown":
+        keyboard = [
+            [InlineKeyboardButton("No limit", callback_data="cooldown_0")],
+            [InlineKeyboardButton("30 seconds", callback_data="cooldown_30")],
+            [InlineKeyboardButton("1 minute", callback_data="cooldown_60")],
+            [InlineKeyboardButton("5 minutes", callback_data="cooldown_300")],
+            [InlineKeyboardButton("Back to Status", callback_data="status")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(
+            "🐋 Choose rate limit between alerts:\n\n• No limit: Get all matching alerts\n• 30s/1min/5min: Space out alerts to reduce spam",
+            reply_markup=reply_markup
+        )
+
+    elif data.startswith("cooldown_"):
+        cooldown_value = int(data.split("_")[1])
+        filters = load_filters()
+        user_filter = filters.get(chat_id, {})
+        user_filter['cooldown'] = cooldown_value
+        filters[chat_id] = user_filter
+        save_filters(filters)
+
+        cooldown_text = "No limit" if cooldown_value == 0 else f"{cooldown_value//60}min" if cooldown_value >= 60 else f"{cooldown_value}s"
+        keyboard = [[InlineKeyboardButton("Back to Status", callback_data="status")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(
+            f"✅ Rate limit set to: {cooldown_text}",
             reply_markup=reply_markup
         )
 

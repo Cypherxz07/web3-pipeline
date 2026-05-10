@@ -29,6 +29,9 @@ Block: {transfer['block']}
 
 FILTER_WARNING_LOGGED = False
 
+# Rate limiting: last alert time per chat_id
+last_alert_times = {}
+
 def load_filters():
     import json, os
     root_filters = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', 'user_filters.json'))
@@ -51,14 +54,26 @@ async def alert(transfer, threshold):
     if not filters:
         return False
 
+    import time
+    current_time = time.time()
+    cooldown_seconds = 60  # 1 minute cooldown between alerts per user
+
     sent_any = False
     for chat_id, user_filter in filters.items():
         if transfer['chain'] != user_filter.get('chain', 'ethereum'):
             continue
         if transfer['amount_usd'] < user_filter.get('min_amount', threshold):
             continue
+        if not user_filter.get('enabled', True):
+            continue
+
+        # Rate limiting
+        last_time = last_alert_times.get(chat_id, 0)
+        if current_time - last_time < cooldown_seconds:
+            continue  # Skip if too recent
 
         await send_whale_alert(transfer, threshold, chat_id)
+        last_alert_times[chat_id] = current_time
         sent_any = True
 
     return sent_any

@@ -135,15 +135,57 @@ async def button_callback(update: Update, context):
                 reply_markup=reply_markup
             )
         else:
+            enabled = user_filter.get('enabled', True)
+            status_text = "✅ Active" if enabled else "🛑 Stopped"
             keyboard = [
                 [InlineKeyboardButton("Change Filter", callback_data="set_filter")],
-                [InlineKeyboardButton("Test Alert", callback_data="test_alert")]
+                [InlineKeyboardButton("Test Alert", callback_data="test_alert")],
+                [InlineKeyboardButton("Stop Alerts" if enabled else "Resume Alerts", callback_data="toggle_alerts")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             await query.edit_message_text(
-                f"✅ Current filter:\nChain: {user_filter['chain'].upper()}\nMinimum amount: ${user_filter['min_amount']:,.0f}",
+                f"Status: {status_text}\nChain: {user_filter['chain'].upper()}\nMinimum amount: ${user_filter['min_amount']:,.0f}",
                 reply_markup=reply_markup
             )
+
+    elif data == "toggle_alerts":
+        filters = load_filters()
+        user_filter = filters.get(chat_id, {})
+        enabled = user_filter.get('enabled', True)
+        user_filter['enabled'] = not enabled
+        filters[chat_id] = user_filter
+        save_filters(filters)
+
+        new_status = "resumed" if user_filter['enabled'] else "stopped"
+        keyboard = [[InlineKeyboardButton("Back to Status", callback_data="status")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(
+            f"✅ Alerts {new_status}!",
+            reply_markup=reply_markup
+        )
+
+    elif data == "stop_alerts":
+        filters = load_filters()
+        user_filter = filters.get(chat_id, {})
+        user_filter['enabled'] = False
+        filters[chat_id] = user_filter
+        save_filters(filters)
+
+        keyboard = [[InlineKeyboardButton("Resume Alerts", callback_data="resume")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(
+            "🛑 Alerts stopped.\n\nYou won't receive whale transfer notifications until you resume.",
+            reply_markup=reply_markup
+        )
+
+    elif data == "resume":
+        filters = load_filters()
+        user_filter = filters.get(chat_id, {})
+        user_filter['enabled'] = True
+        filters[chat_id] = user_filter
+        save_filters(filters)
+
+        await query.edit_message_text("✅ Alerts resumed! You'll now receive whale transfer notifications again.")
 
     elif data == "test_alert":
         # Send a test alert
@@ -191,20 +233,50 @@ async def start_command(update: Update, context):
     keyboard = [
         [InlineKeyboardButton("Set Alert Filter", callback_data="set_filter")],
         [InlineKeyboardButton("Check Status", callback_data="status")],
-        [InlineKeyboardButton("Test Alert", callback_data="test_alert")]
+        [InlineKeyboardButton("Test Alert", callback_data="test_alert")],
+        [InlineKeyboardButton("Stop Alerts", callback_data="stop_alerts")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await update.message.reply_text(
         "🐋 Welcome to Multi-Chain Whale Tracker!\n\n"
-        "Get notified when large cryptocurrency transfers happen on Ethereum, Polygon, and Arbitrum.",
+        "Get notified when large cryptocurrency transfers happen on Ethereum, Polygon, and Arbitrum.\n\n"
+        "Commands: /set, /status, /stop, /resume",
         reply_markup=reply_markup
     )
+
+async def stop_command(update: Update, context):
+    chat_id = str(update.effective_chat.id)
+    filters = load_filters()
+    user_filter = filters.get(chat_id, {})
+    user_filter['enabled'] = False
+    filters[chat_id] = user_filter
+    save_filters(filters)
+
+    keyboard = [[InlineKeyboardButton("Resume Alerts", callback_data="resume")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await update.message.reply_text(
+        "🛑 Alerts stopped.\n\nYou won't receive whale transfer notifications until you resume.",
+        reply_markup=reply_markup
+    )
+
+async def resume_command(update: Update, context):
+    chat_id = str(update.effective_chat.id)
+    filters = load_filters()
+    user_filter = filters.get(chat_id, {})
+    user_filter['enabled'] = True
+    filters[chat_id] = user_filter
+    save_filters(filters)
+
+    await update.message.reply_text("✅ Alerts resumed! You'll now receive whale transfer notifications again.")
 
 def add_handlers_to_app(app):
     app.add_handler(CommandHandler(["set", "set_filter"], set_filter))
     app.add_handler(CommandHandler("status", get_filter_status))
     app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(CommandHandler("stop", stop_command))
+    app.add_handler(CommandHandler("resume", resume_command))
     app.add_handler(CallbackQueryHandler(button_callback))
 
 def main():

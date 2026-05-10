@@ -5,6 +5,7 @@ import sys
 import sqlite3
 import threading
 import json
+import requests
 
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if ROOT_DIR not in sys.path:
@@ -31,6 +32,18 @@ if os.getenv('TELEGRAM_BOT_TOKEN_2'):
     import asyncio
     asyncio.run(telegram_app.initialize())
     print("🐋 Telegram bot initialized in Flask app")
+    
+    # Set webhook synchronously to avoid event loop issues
+    base_url = os.getenv('RENDER_EXTERNAL_URL', 'https://web3-pipeline-1.onrender.com')
+    webhook_url = f"{base_url}/telegram"
+    bot_token = os.getenv('TELEGRAM_BOT_TOKEN_2')
+    set_webhook_url = f"https://api.telegram.org/bot{bot_token}/setWebhook"
+    data = {"url": webhook_url}
+    response = requests.post(set_webhook_url, data=data)
+    if response.status_code == 200:
+        print("🐋 Telegram webhook set successfully")
+    else:
+        print(f"🐋 Failed to set Telegram webhook: {response.text}")
 
 
 worker_thread = threading.Thread(target=start_worker, daemon=True)

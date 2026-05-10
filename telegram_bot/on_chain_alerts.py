@@ -27,6 +27,8 @@ Block: {transfer['block']}
     
     await bot.send_message(chat_id=chat_id, text=message, parse_mode='Markdown')
 
+FILTER_WARNING_LOGGED = False
+
 def load_filters():
     import json, os
     root_filters = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', 'user_filters.json'))
@@ -38,13 +40,15 @@ def load_filters():
             with open(path) as f:
                 return json.load(f)
 
-    print(f"No filter file found. Checked: {root_filters}, {telegram_filters}, and {legacy_filters}")
+    global FILTER_WARNING_LOGGED
+    if not FILTER_WARNING_LOGGED:
+        print(f"No filter file found. Checked: {root_filters}, {telegram_filters}, and {legacy_filters}")
+        FILTER_WARNING_LOGGED = True
     return {}
 
 async def alert(transfer, threshold):
     filters = load_filters()
     if not filters:
-        print("Telegram alert skipped: no filter set. Use /set <chain> <min_amount> to enable alerts.")
         return False
 
     sent_any = False

@@ -27,6 +27,9 @@ telegram_app = None
 if os.getenv('TELEGRAM_BOT_TOKEN_2'):
     telegram_app = Application.builder().token(os.getenv('TELEGRAM_BOT_TOKEN_2')).build()
     add_handlers_to_app(telegram_app)
+    # Initialize the application asynchronously
+    import asyncio
+    asyncio.run(telegram_app.initialize())
     print("🐋 Telegram bot initialized in Flask app")
 
 

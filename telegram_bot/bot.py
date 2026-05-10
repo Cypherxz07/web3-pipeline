@@ -199,7 +199,7 @@ async def start_command(update: Update, context):
         reply_markup=reply_markup
     )
 
-async def main():
+def main():
     app = Application.builder().token(TELEGRAM_BOT_TOKEN_2).build()
     app.add_handler(CommandHandler(["set", "set_filter"], set_filter))
     app.add_handler(CommandHandler("status", get_filter_status))
@@ -210,32 +210,7 @@ async def main():
     print("Available commands: /start, /set, /status")
     print("Filter file:", USER_FILTERS_FILE)
 
-    await app.run_polling(stop_signals=())
-
-def run_bot():
-    """Run bot in separate thread with its own event loop"""
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        loop.run_until_complete(main())
-    except Exception as e:
-        print(f"❌ Bot error: {e}")
-        import traceback
-        traceback.print_exc()
-    finally:
-        loop.close()
+    app.run_polling(stop_signals=())
 
 if __name__ == "__main__":
-    import signal
-    import threading
-    
-    # Run bot in background thread
-    bot_thread = threading.Thread(target=run_bot, daemon=True)
-    bot_thread.start()
-    
-    # Keep main thread alive
-    try:
-        while True:
-            signal.pause()
-    except KeyboardInterrupt:
-        print("\n🛑 Bot stopped by user")
+    main()

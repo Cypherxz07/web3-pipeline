@@ -212,23 +212,30 @@ async def main():
 
     await app.run_polling(stop_signals=())
 
-if __name__ == "__main__":
-    import signal
-    
-    # Handle termination signals gracefully
-    def signal_handler(signum, frame):
-        print("\n🛑 Bot shutdown initiated...")
-        import sys
-        sys.exit(0)
-    
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-    
+def run_bot():
+    """Run bot in separate thread with its own event loop"""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print("\n🛑 Bot stopped by user")
+        loop.run_until_complete(main())
     except Exception as e:
         print(f"❌ Bot error: {e}")
         import traceback
         traceback.print_exc()
+    finally:
+        loop.close()
+
+if __name__ == "__main__":
+    import signal
+    import threading
+    
+    # Run bot in background thread
+    bot_thread = threading.Thread(target=run_bot, daemon=True)
+    bot_thread.start()
+    
+    # Keep main thread alive
+    try:
+        while True:
+            signal.pause()
+    except KeyboardInterrupt:
+        print("\n🛑 Bot stopped by user")

@@ -37,7 +37,8 @@ worker_thread.start()
 def telegram_webhook():
     if telegram_app and request.method == 'POST':
         update = Update.de_json(request.get_json(force=True), telegram_app.bot)
-        telegram_app.process_update(update)
+        import asyncio
+        asyncio.run(telegram_app.process_update(update))
         return 'ok'
     return 'no telegram app', 400
 

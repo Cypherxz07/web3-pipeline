@@ -66,7 +66,8 @@ def test_alert():
     }
     
     # Test filter loading
-    filters_file = os.path.join(os.path.dirname(__file__), 'user_filters.json')
+    root_filters = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'user_filters.json'))
+    filters_file = root_filters
     if os.path.exists(filters_file):
         with open(filters_file) as f:
             filters = json.load(f)
@@ -106,7 +107,8 @@ def debug_set_filter():
     chain = request.args.get('chain', 'ethereum')
     amount = float(request.args.get('amount', '100000'))
     
-    filters_file = os.path.join(os.path.dirname(__file__), 'user_filters.json')
+    root_filters = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'user_filters.json'))
+    filters_file = root_filters
     if os.path.exists(filters_file):
         with open(filters_file) as f:
             filters = json.load(f)

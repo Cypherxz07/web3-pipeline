@@ -16,17 +16,17 @@ if ROOT_DIR not in sys.path:
 
 from config import TELEGRAM_BOT_TOKEN_2
 
-# Filter file path
-filters_file = os.path.join(os.path.dirname(__file__), 'user_filters.json')
+# Shared filter file path at repository root
+USER_FILTERS_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'user_filters.json'))
 
 def load_filters():
-    if os.path.exists(filters_file):
-        with open(filters_file) as f:
+    if os.path.exists(USER_FILTERS_FILE):
+        with open(USER_FILTERS_FILE) as f:
             return json.load(f)
     return {}
 
 def save_filters(filters):
-    with open(filters_file, 'w') as f:
+    with open(USER_FILTERS_FILE, 'w') as f:
         json.dump(filters, f)
 
 async def set_filter(update: Update, context):
@@ -208,20 +208,7 @@ async def main():
 
     print("🐋 Telegram Whale Tracker Bot started!")
     print("Available commands: /start, /set, /status")
-    print("Filter file:", filters_file)
-
-    await app.run_polling(stop_signals=())
-
-async def main():
-    app = Application.builder().token(TELEGRAM_BOT_TOKEN_2).build()
-    app.add_handler(CommandHandler(["set", "set_filter"], set_filter))
-    app.add_handler(CommandHandler("status", get_filter_status))
-    app.add_handler(CommandHandler("start", start_command))
-    app.add_handler(CallbackQueryHandler(button_callback))
-
-    print("🐋 Telegram Whale Tracker Bot started!")
-    print("Available commands: /start, /set, /status")
-    print("Filter file:", filters_file)
+    print("Filter file:", USER_FILTERS_FILE)
 
     await app.run_polling(stop_signals=())
 

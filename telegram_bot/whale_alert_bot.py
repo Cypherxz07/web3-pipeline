@@ -34,10 +34,14 @@ KNOWN_ADDRESSES = {
 ADDRESS_CACHE = {}
 
 def load_filters():
-    filters_file = os.path.join(os.path.dirname(__file__), '../whale_tracker/user_filters.json')
-    if os.path.exists(filters_file):
-        with open(filters_file) as f:
-            return json.load(f)
+    root_filters = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'user_filters.json'))
+    telegram_filters = os.path.abspath(os.path.join(os.path.dirname(__file__), 'user_filters.json'))
+    legacy_filters = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'whale_tracker', 'user_filters.json'))
+
+    for path in (root_filters, telegram_filters, legacy_filters):
+        if os.path.exists(path):
+            with open(path) as f:
+                return json.load(f)
     return {}
 
 def get_user_filter():

@@ -12,7 +12,7 @@ spec = importlib.util.spec_from_file_location('config', config_path)
 config = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(config)
 from whale_tracker.fetch_transfers import get_transfer_logs, decode_transfer, save_to_db
-from telegram_bot.on_chain_alerts import alert
+from telegram_bot.on_chain_alerts import alert, load_filters
 from web3 import Web3
 INFURA_PROJECT_ID = config.INFURA_PROJECT_ID
 WHALE_TRACKER_THRESHOLD_USD = config.WHALE_TRACKER_THRESHOLD_USD
@@ -62,12 +62,22 @@ async def run():
                 print(f"[{chain_name.upper()}] Error fetching logs: {e}")
                 continue
             
+            filters = load_filters()
+            if filters:
+                min_filter_amount = min(
+                    (user_filter.get('min_amount', WHALE_TRACKER_THRESHOLD_USD) for user_filter in filters.values()),
+                    default=WHALE_TRACKER_THRESHOLD_USD
+                )
+                track_threshold = min(WHALE_TRACKER_THRESHOLD_USD, min_filter_amount)
+            else:
+                track_threshold = WHALE_TRACKER_THRESHOLD_USD
+            
             whales = 0
             for log in logs:
                 transfer = decode_transfer(log)
                 transfer['chain'] = chain_name
                 
-                if transfer['amount_usd'] > WHALE_TRACKER_THRESHOLD_USD:
+                if transfer['amount_usd'] > track_threshold:
                     print(f"🐋 [{chain_name}] {transfer['token_symbol']}: ${transfer['amount_usd']:,.2f}")
                     save_to_db(transfer)
                     try:

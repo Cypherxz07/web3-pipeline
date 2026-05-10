@@ -12,17 +12,35 @@ if ROOT_DIR not in sys.path:
 
 from whale_tracker.main import start_worker
 
+# Telegram bot integration
+from telegram import Update
+from telegram.ext import Application
+from telegram_bot.bot import add_handlers_to_app
+
 db_path = os.path.join(os.path.dirname(__file__), 'whale_tracker.db')
 
 app = Flask(__name__)
 CORS(app)
 
+# Initialize Telegram app if token is available
+telegram_app = None
+if os.getenv('TELEGRAM_BOT_TOKEN_2'):
+    telegram_app = Application.builder().token(os.getenv('TELEGRAM_BOT_TOKEN_2')).build()
+    add_handlers_to_app(telegram_app)
+    print("🐋 Telegram bot initialized in Flask app")
+
+
 worker_thread = threading.Thread(target=start_worker, daemon=True)
 worker_thread.start()
 
-@app.route('/', methods=['GET'])
-def index():
-    return send_from_directory(os.path.dirname(__file__), 'dashboard.html')
+@app.route('/telegram', methods=['POST'])
+def telegram_webhook():
+    if telegram_app and request.method == 'POST':
+        update = Update.de_json(request.get_json(force=True), telegram_app.bot)
+        telegram_app.process_update(update)
+        return 'ok'
+    return 'no telegram app', 400
+
 
 @app.route('/api/whales', methods=['GET'])
 def get_whales():
@@ -148,6 +166,19 @@ def cron_trigger():
     return {'status': 'cron triggered'}, 200
 
 if __name__ == "__main__":
+    # Set up Telegram webhook if available
+    if telegram_app:
+        webhook_url = os.getenv('RENDER_EXTERNAL_URL', os.getenv('WEBHOOK_URL', ''))
+        if webhook_url:
+            full_webhook_url = webhook_url.rstrip('/') + '/telegram'
+            try:
+                telegram_app.bot.set_webhook(full_webhook_url)
+                print(f"🐋 Telegram webhook set to {full_webhook_url}")
+            except Exception as e:
+                print(f"Failed to set Telegram webhook: {e}")
+        else:
+            print("No WEBHOOK_URL or RENDER_EXTERNAL_URL set, Telegram bot will not receive updates")
+
     port = int(os.getenv('PORT', '5000'))
     # Use threaded=True to allow concurrent requests
     app.run(debug=False, host='0.0.0.0', port=port, use_reloader=False, threaded=True)

@@ -4,10 +4,12 @@ Standalone Telegram Bot for Whale Tracker
 """
 import os
 import sys
+import time
 import asyncio
 import json
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
+from telegram.error import Conflict
 
 # Add parent directory to path
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -199,18 +201,36 @@ async def start_command(update: Update, context):
         reply_markup=reply_markup
     )
 
-def main():
-    app = Application.builder().token(TELEGRAM_BOT_TOKEN_2).build()
+def add_handlers_to_app(app):
     app.add_handler(CommandHandler(["set", "set_filter"], set_filter))
     app.add_handler(CommandHandler("status", get_filter_status))
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CallbackQueryHandler(button_callback))
 
+def main():
+    app = Application.builder().token(TELEGRAM_BOT_TOKEN_2).build()
+    add_handlers_to_app(app)
+
     print("🐋 Telegram Whale Tracker Bot started!")
     print("Available commands: /start, /set, /status")
     print("Filter file:", USER_FILTERS_FILE)
 
-    app.run_polling(stop_signals=())
+    try:
+        print("Clearing any existing webhook/pending updates before polling...")
+        app.bot.delete_webhook(drop_pending_updates=True)
+    except Exception as e:
+        print(f"Warning: could not clear webhook before polling: {e}")
+
+    while True:
+        try:
+            app.run_polling(stop_signals=())
+            break
+        except Conflict as e:
+            print(f"Telegram polling conflict: {e}. Retrying in 15s...")
+            time.sleep(15)
+        except Exception as e:
+            print(f"Telegram bot error: {e}. Retrying in 15s...")
+            time.sleep(15)
 
 if __name__ == "__main__":
     main()

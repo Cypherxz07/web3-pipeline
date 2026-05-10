@@ -26,8 +26,5 @@ WHALE_TRACKER_TRACKED_TOKENS = {
 EOF
 fi
 
-# Start Telegram bot
-python telegram_bot/bot.py &
-
-# Start Flask app
+# Start the Flask app (which now includes the Telegram bot)
 python whale_tracker/whale_api.py

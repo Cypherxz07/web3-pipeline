@@ -56,11 +56,28 @@ if os.getenv('TELEGRAM_BOT_TOKEN_2'):
         response = requests.post(set_webhook_url, data=data)
         if response.status_code == 200:
             print("🐋 Telegram webhook set successfully")
+            # Verify webhook was set
+            info_response = requests.get(f"https://api.telegram.org/bot{bot_token}/getWebhookInfo")
+            if info_response.status_code == 200:
+                info = info_response.json()
+                print(f"🐋 Webhook info: {info}")
+            else:
+                print(f"🐋 Failed to get webhook info: {info_response.text}")
         else:
             print(f"🐋 Failed to set Telegram webhook: {response.text}")
     
     # Run all async setup in one call
     asyncio.run(setup_telegram())
+    
+    # Test bot token
+    bot_token = os.getenv('TELEGRAM_BOT_TOKEN_2')
+    if bot_token:
+        test_response = requests.get(f"https://api.telegram.org/bot{bot_token}/getMe")
+        if test_response.status_code == 200:
+            bot_info = test_response.json()
+            print(f"🐋 Bot info: {bot_info}")
+        else:
+            print(f"🐋 Bot token test failed: {test_response.text}")
 
 
 worker_thread = threading.Thread(target=start_worker, daemon=True)
@@ -68,15 +85,23 @@ worker_thread.start()
 
 @app.route('/telegram', methods=['POST'])
 def telegram_webhook():
+    print(f"🐋 Webhook received: method={request.method}, content-type={request.content_type}")
     if telegram_app and request.method == 'POST':
-        payload = request.get_json(force=True)
-        print('Telegram webhook payload received:', payload)
-        update = Update.de_json(payload, telegram_app.bot)
-        import asyncio
-        result = asyncio.run(telegram_app.process_update(update))
-        print('Telegram webhook processed update result:', result)
-        return 'ok'
-    print('Telegram webhook received request but telegram_app is not initialized')
+        try:
+            payload = request.get_json(force=True)
+            print('🐋 Telegram webhook payload received:', payload)
+            update = Update.de_json(payload, telegram_app.bot)
+            print('🐋 Created update object')
+            import asyncio
+            result = asyncio.run(telegram_app.process_update(update))
+            print('🐋 Telegram webhook processed update result:', result)
+            return 'ok'
+        except Exception as e:
+            print(f"🐋 Error processing webhook: {e}")
+            import traceback
+            traceback.print_exc()
+            return 'error', 500
+    print('🐋 Telegram webhook received request but telegram_app is not initialized')
     return 'no telegram app', 400
 
 @app.route('/api/debug/telegram-webhook-info', methods=['GET'])

@@ -172,7 +172,8 @@ if __name__ == "__main__":
         if webhook_url:
             full_webhook_url = webhook_url.rstrip('/') + '/telegram'
             try:
-                telegram_app.bot.set_webhook(full_webhook_url)
+                import asyncio
+                asyncio.run(telegram_app.bot.set_webhook(full_webhook_url))
                 print(f"🐋 Telegram webhook set to {full_webhook_url}")
             except Exception as e:
                 print(f"Failed to set Telegram webhook: {e}")

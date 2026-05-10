@@ -41,6 +41,9 @@ def telegram_webhook():
         return 'ok'
     return 'no telegram app', 400
 
+@app.route('/', methods=['GET'])
+def index():
+    return send_from_directory(os.path.dirname(__file__), 'dashboard.html')
 
 @app.route('/api/whales', methods=['GET'])
 def get_whales():

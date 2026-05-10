@@ -278,20 +278,6 @@ def cron_trigger():
     return {'status': 'cron triggered'}, 200
 
 if __name__ == "__main__":
-    # Set up Telegram webhook if available
-    if telegram_app:
-        webhook_url = os.getenv('RENDER_EXTERNAL_URL', os.getenv('WEBHOOK_URL', ''))
-        if webhook_url:
-            full_webhook_url = webhook_url.rstrip('/') + '/telegram'
-            try:
-                import asyncio
-                asyncio.run(telegram_app.bot.set_webhook(full_webhook_url))
-                print(f"🐋 Telegram webhook set to {full_webhook_url}")
-            except Exception as e:
-                print(f"Failed to set Telegram webhook: {e}")
-        else:
-            print("No WEBHOOK_URL or RENDER_EXTERNAL_URL set, Telegram bot will not receive updates")
-
     port = int(os.getenv('PORT', '5000'))
-    # Use threaded=True to allow concurrent requests
     app.run(debug=False, host='0.0.0.0', port=port, use_reloader=False, threaded=True)
+

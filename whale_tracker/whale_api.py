@@ -36,11 +36,27 @@ worker_thread.start()
 @app.route('/telegram', methods=['POST'])
 def telegram_webhook():
     if telegram_app and request.method == 'POST':
-        update = Update.de_json(request.get_json(force=True), telegram_app.bot)
+        payload = request.get_json(force=True)
+        print('Telegram webhook payload received:', payload)
+        update = Update.de_json(payload, telegram_app.bot)
         import asyncio
-        asyncio.run(telegram_app.process_update(update))
+        result = asyncio.run(telegram_app.process_update(update))
+        print('Telegram webhook processed update result:', result)
         return 'ok'
+    print('Telegram webhook received request but telegram_app is not initialized')
     return 'no telegram app', 400
+
+@app.route('/api/debug/telegram-webhook-info', methods=['GET'])
+def debug_telegram_webhook_info():
+    if not telegram_app:
+        return jsonify({'status': 'error', 'error': 'telegram_app not initialized'})
+
+    import asyncio
+    try:
+        webhook_info = asyncio.run(telegram_app.bot.get_webhook_info())
+        return jsonify({'status': 'success', 'webhook_info': webhook_info.to_dict()})
+    except Exception as e:
+        return jsonify({'status': 'error', 'error': str(e)})
 
 @app.route('/', methods=['GET'])
 def index():

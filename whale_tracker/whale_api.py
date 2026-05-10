@@ -126,6 +126,20 @@ def debug_set_filter():
         'filters': filters
     })
 
+@app.route('/api/debug/filter-status', methods=['GET'])
+def debug_filter_status():
+    root_filters = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'user_filters.json'))
+    exists = os.path.exists(root_filters)
+    filters = {}
+    if exists:
+        with open(root_filters) as f:
+            filters = json.load(f)
+    return jsonify({
+        'filters_file': root_filters,
+        'exists': exists,
+        'filters': filters
+    })
+
 @app.route('/api/cron', methods=['GET'])
 def cron_trigger():
     import subprocess

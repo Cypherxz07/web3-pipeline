@@ -3,7 +3,7 @@
 Real-time on-chain analytics scripts built during a 90-day Web3 learning challenge.
 
 ## Live Demos
-- 🐋 **Whale Tracker Dashboard** → [web3-pipeline-1.onrender.com](https://web3-pipeline-1.onrender.com/)
+- 🐋 **Whale Tracker Dashboard** → `WEBHOOK_BASE_URL` should be set in production for your deployment URL
 - 📊 **USDC Market Intelligence** (Dune) → [dune.com/0xkairo/usdc-market-intelligence](https://dune.com/0xkairo/usdc-market-intelligence)
 
 ---
@@ -66,6 +66,36 @@ Run the whale tracker:
 ```bash
 python whale_transfer_monitor/tracker.py
 ```
+
+---
+
+## Google Cloud Run deployment
+
+This project is ready for Google Cloud Run using the existing `Dockerfile`.
+
+1. Authenticate and select your project:
+
+```bash
+gcloud auth login
+gcloud config set project YOUR_PROJECT_ID
+```
+
+2. Deploy with Cloud Build:
+
+```bash
+gcloud builds submit --config cloudbuild.yaml --substitutions _REGION=us-central1,_WEBHOOK_BASE_URL=https://your-cloud-run-url.run.app
+```
+
+3. Set production environment variables in Cloud Run for your service:
+
+- `TELEGRAM_BOT_TOKEN_2`
+- `TELEGRAM_CHAT_ID`
+- `INFURA_PROJECT_ID`
+- `ALCHEMY_RPC_URL`
+- `ETHERSCAN_API_KEY`
+- `WEBHOOK_BASE_URL`
+
+If you want to use Cloud Run without Cloud Build, deploy directly with `gcloud run deploy`.
 
 ---
 

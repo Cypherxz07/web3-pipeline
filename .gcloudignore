@@ -1,0 +1,32 @@
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local database files
+*.db
+whale_tracker.db
+whales.db
+
+# Local config / secrets
+config.py
+.env
+.env.*
+
+# Git and editor
+.git
+.gitignore
+.vscode/
+.idea/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+*.swo
+.DS_Store
+
+# Other deployment configs
+railway.json
+.github/

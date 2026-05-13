@@ -1,0 +1,23 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/$SERVICE_NAME:$SHORT_SHA', '.']
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        gcloud run deploy "$SERVICE_NAME" \
+          --image "gcr.io/$PROJECT_ID/$SERVICE_NAME:$SHORT_SHA" \
+          --region "$REGION" \
+          --platform managed \
+          --allow-unauthenticated \
+          --port 5000 \
+          --set-env-vars WEBHOOK_BASE_URL="$WEBHOOK_BASE_URL"
+images:
+  - 'gcr.io/$PROJECT_ID/$SERVICE_NAME:$SHORT_SHA'
+substitutions:
+  _SERVICE_NAME: 'web3-pipeline'
+  _REGION: 'us-central1'
+  _WEBHOOK_BASE_URL: 'https://your-cloud-run-url.run.app'
+options:
+  machineType: 'E2_HIGHCPU_8'

@@ -15,28 +15,32 @@ if ROOT_DIR not in sys.path:
 from whale_tracker.main import start_worker
 
 # Telegram bot integration
-from telegram import Update
+from telegram import Update, BotCommand
 from telegram.ext import Application
 from telegram_bot.bot import add_handlers_to_app
+import asyncio
+import threading
 
+# Global event loop for async operations
+telegram_loop = None
+telegram_app = None
+
+# Database path
 db_path = os.path.join(os.path.dirname(__file__), 'whale_tracker.db')
 
-app = Flask(__name__)
-CORS(app)
-
-# Initialize Telegram app if token is available
-telegram_app = None
-if os.getenv('TELEGRAM_BOT_TOKEN_2'):
-    telegram_app = Application.builder().token(os.getenv('TELEGRAM_BOT_TOKEN_2')).build()
-    add_handlers_to_app(telegram_app)
-    
-    # Set up Telegram bot in a single async operation
-    async def setup_telegram():
-        await telegram_app.initialize()
+def setup_telegram_app():
+    global telegram_app, telegram_loop
+    if os.getenv('TELEGRAM_BOT_TOKEN_2'):
+        telegram_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(telegram_loop)
+        
+        telegram_app = Application.builder().token(os.getenv('TELEGRAM_BOT_TOKEN_2')).build()
+        add_handlers_to_app(telegram_app)
+        
+        telegram_loop.run_until_complete(telegram_app.initialize())
         print("🐋 Telegram bot initialized in Flask app")
         
         # Set bot commands for menu
-        from telegram import BotCommand
         commands = [
             BotCommand("start", "Show welcome message and options"),
             BotCommand("set", "Set alert filter (chain and amount)"),
@@ -44,7 +48,7 @@ if os.getenv('TELEGRAM_BOT_TOKEN_2'):
             BotCommand("stop", "Stop receiving alerts"),
             BotCommand("resume", "Resume receiving alerts")
         ]
-        await telegram_app.bot.set_my_commands(commands)
+        telegram_loop.run_until_complete(telegram_app.bot.set_my_commands(commands))
         print("🐋 Telegram bot commands set")
         
         # Set webhook synchronously to avoid event loop issues
@@ -65,19 +69,18 @@ if os.getenv('TELEGRAM_BOT_TOKEN_2'):
                 print(f"🐋 Failed to get webhook info: {info_response.text}")
         else:
             print(f"🐋 Failed to set Telegram webhook: {response.text}")
-    
-    # Run all async setup in one call
-    asyncio.run(setup_telegram())
-    
-    # Test bot token
-    bot_token = os.getenv('TELEGRAM_BOT_TOKEN_2')
-    if bot_token:
+        
+        # Test bot token
         test_response = requests.get(f"https://api.telegram.org/bot{bot_token}/getMe")
         if test_response.status_code == 200:
             bot_info = test_response.json()
             print(f"🐋 Bot info: {bot_info}")
         else:
             print(f"🐋 Bot token test failed: {test_response.text}")
+
+# Start Telegram setup in background thread
+telegram_thread = threading.Thread(target=setup_telegram_app, daemon=True)
+telegram_thread.start()
 
 
 def maintain_webhook():
@@ -120,14 +123,16 @@ webhook_thread.start()
 @app.route('/telegram', methods=['POST'])
 def telegram_webhook():
     print(f"🐋 Webhook received: method={request.method}, content-type={request.content_type}")
-    if telegram_app and request.method == 'POST':
+    if telegram_app and telegram_loop and request.method == 'POST':
         try:
             payload = request.get_json(force=True)
             print('🐋 Telegram webhook payload received:', payload)
             update = Update.de_json(payload, telegram_app.bot)
             print('🐋 Created update object')
-            import asyncio
-            result = asyncio.run(telegram_app.process_update(update))
+            
+            # Process update in the dedicated event loop
+            future = asyncio.run_coroutine_threadsafe(telegram_app.process_update(update), telegram_loop)
+            result = future.result(timeout=10)  # Wait up to 10 seconds
             print('🐋 Telegram webhook processed update result:', result)
             return 'ok'
         except Exception as e:
@@ -278,6 +283,16 @@ def cron_trigger():
     return {'status': 'cron triggered'}, 200
 
 if __name__ == "__main__":
+    # Start the whale tracker worker in a separate thread
+    try:
+        worker_thread = threading.Thread(target=start_worker, daemon=True)
+        worker_thread.start()
+        print("🐋 Whale tracker worker thread started successfully")
+    except Exception as e:
+        print(f"🐋 ERROR starting whale tracker worker: {e}")
+        import traceback
+        traceback.print_exc()
+    
     port = int(os.getenv('PORT', '5000'))
     app.run(debug=False, host='0.0.0.0', port=port, use_reloader=False, threaded=True)
 

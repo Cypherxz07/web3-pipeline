@@ -353,18 +353,6 @@ if __name__ == "__main__":
     print("🐋 Web3 Pipeline - Cloud Run Startup")
     print("🐋 ========================================")
     
-    # Start the whale tracker worker in a separate thread
-    if start_worker is not None:
-        try:
-            print("🐋 Starting whale tracker worker thread...")
-            worker_thread = threading.Thread(target=start_worker, daemon=True)
-            worker_thread.start()
-            print("✅ Whale tracker worker thread started")
-        except Exception as e:
-            print(f"⚠️ Warning: Could not start worker thread: {e}")
-    else:
-        print("⚠️ Whale tracker worker not available")
-    
     # Get port from environment
     port = int(os.getenv('PORT', '5000'))
     print(f"🐋 Flask app will listen on port {port}")

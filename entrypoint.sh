@@ -6,6 +6,16 @@ export PYTHONPATH=/app:$PYTHONPATH
 echo "🐋 Starting web3-pipeline..."
 echo "🐋 Python version: $(python --version)"
 echo "🐋 Python path: $(which python)"
+echo "🐋 Current directory: $(pwd)"
+echo "🐋 Files in directory: $(ls -la)"
+
+# Test basic Python import
+echo "🐋 Testing basic Python..."
+python -c "import sys; print('Python works'); print('Python path:', sys.path[:3])"
+
+# Test Flask import
+echo "🐋 Testing Flask import..."
+python -c "import flask; print('Flask version:', flask.__version__)" || echo "Flask import failed"
 
 # Always generate config.py from environment variables to ensure Cloud Run env vars are used
 cat > /app/config.py <<'EOF'

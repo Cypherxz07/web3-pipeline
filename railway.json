@@ -1,8 +1,0 @@
-{
-    "build": {
-        "builder": "docker"
-    },
-    "deploy": {
-        "startCommand": "cd whale_tracker && python whale_api.py & python main.py"
-    }
-}

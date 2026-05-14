@@ -52,8 +52,8 @@ def setup_telegram_app():
         print("🐋 Telegram bot commands set")
         
         # Set webhook synchronously to avoid event loop issues
-        base_url = os.getenv('RENDER_EXTERNAL_URL', 'https://web3-pipeline-1.onrender.com')
-        webhook_url = f"{base_url}/telegram"
+        base_url = os.getenv('WEBHOOK_BASE_URL', os.getenv('RENDER_EXTERNAL_URL', 'http://localhost:5000'))
+        webhook_url = f"{base_url.rstrip('/')}/telegram"
         bot_token = os.getenv('TELEGRAM_BOT_TOKEN_2')
         set_webhook_url = f"https://api.telegram.org/bot{bot_token}/setWebhook"
         data = {"url": webhook_url}
@@ -95,7 +95,8 @@ def maintain_webhook():
                 if info_response.status_code == 200:
                     info = info_response.json()
                     current_url = info.get('result', {}).get('url', '')
-                    expected_url = f"{os.getenv('RENDER_EXTERNAL_URL', 'https://web3-pipeline-1.onrender.com')}/telegram"
+                    expected_url_base = os.getenv('WEBHOOK_BASE_URL', os.getenv('RENDER_EXTERNAL_URL', 'http://localhost:5000'))
+                    expected_url = f"{expected_url_base.rstrip('/')}/telegram"
                     
                     if current_url != expected_url:
                         print(f"🐋 Webhook URL mismatch. Current: {current_url}, Expected: {expected_url}. Resetting...")
@@ -278,8 +279,8 @@ def debug_filter_status():
 @app.route('/api/cron', methods=['GET'])
 def cron_trigger():
     import subprocess
-    os.chdir('/app/whale_tracker')
-    subprocess.Popen(['python', 'main.py'])
+    script_path = os.path.join(os.path.dirname(__file__), 'main.py')
+    subprocess.Popen(['python', script_path])
     return {'status': 'cron triggered'}, 200
 
 if __name__ == "__main__":

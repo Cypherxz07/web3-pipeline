@@ -1,8 +1,12 @@
 #!/bin/sh
+set -e
 cd /app
 export PYTHONPATH=/app:$PYTHONPATH
-if [ ! -f /app/config.py ]; then
-  cat > /app/config.py <<'EOF'
+
+echo "🐋 Starting web3-pipeline..."
+
+# Always generate config.py from environment variables to ensure Cloud Run env vars are used
+cat > /app/config.py <<'EOF'
 import os
 
 ETHERSCAN_API_KEY = os.getenv('ETHERSCAN_API_KEY', '')
@@ -24,7 +28,9 @@ WHALE_TRACKER_TRACKED_TOKENS = {
     '0x1f9840a85d5af5bf1d1762f925bdaddc4201f984': 'UNI',
 }
 EOF
-fi
 
-# Start the Flask app (which now includes the Telegram bot)
-python whale_tracker/whale_api.py
+echo "🐋 Config generated from environment variables"
+echo "🐋 Starting Flask app..."
+
+# Start the Flask app
+exec python whale_tracker/whale_api.py

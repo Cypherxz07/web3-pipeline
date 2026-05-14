@@ -12,14 +12,24 @@ ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
-from whale_tracker.main import start_worker
+# Try to import whale tracker
+try:
+    from whale_tracker.main import start_worker
+except Exception as e:
+    print(f"⚠️ Warning: Could not import whale_tracker.main: {e}")
+    start_worker = None
 
-# Telegram bot integration
-from telegram import Update, BotCommand
-from telegram.ext import Application
-from telegram_bot.bot import add_handlers_to_app
-import asyncio
-import threading
+# Try to import Telegram bot
+try:
+    from telegram import Update, BotCommand
+    from telegram.ext import Application
+    from telegram_bot.bot import add_handlers_to_app
+except Exception as e:
+    print(f"⚠️ Warning: Could not import Telegram bot: {e}")
+    Update = None
+    BotCommand = None
+    Application = None
+    add_handlers_to_app = None
 
 # Global event loop for async operations
 telegram_loop = None
@@ -30,53 +40,72 @@ db_path = os.path.join(os.path.dirname(__file__), 'whale_tracker.db')
 
 def setup_telegram_app():
     global telegram_app, telegram_loop
-    if os.getenv('TELEGRAM_BOT_TOKEN_2'):
-        telegram_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(telegram_loop)
-        
-        telegram_app = Application.builder().token(os.getenv('TELEGRAM_BOT_TOKEN_2')).build()
-        add_handlers_to_app(telegram_app)
-        
-        telegram_loop.run_until_complete(telegram_app.initialize())
-        print("🐋 Telegram bot initialized in Flask app")
-        
-        # Set bot commands for menu
-        commands = [
-            BotCommand("start", "Show welcome message and options"),
-            BotCommand("set", "Set alert filter (chain and amount)"),
-            BotCommand("status", "Check current filter and status"),
-            BotCommand("stop", "Stop receiving alerts"),
-            BotCommand("resume", "Resume receiving alerts")
-        ]
-        telegram_loop.run_until_complete(telegram_app.bot.set_my_commands(commands))
-        print("🐋 Telegram bot commands set")
-        
-        # Set webhook synchronously to avoid event loop issues
-        base_url = os.getenv('WEBHOOK_BASE_URL', os.getenv('RENDER_EXTERNAL_URL', 'http://localhost:5000'))
-        webhook_url = f"{base_url.rstrip('/')}/telegram"
-        bot_token = os.getenv('TELEGRAM_BOT_TOKEN_2')
-        set_webhook_url = f"https://api.telegram.org/bot{bot_token}/setWebhook"
-        data = {"url": webhook_url}
-        response = requests.post(set_webhook_url, data=data)
-        if response.status_code == 200:
-            print("🐋 Telegram webhook set successfully")
-            # Verify webhook was set
-            info_response = requests.get(f"https://api.telegram.org/bot{bot_token}/getWebhookInfo")
-            if info_response.status_code == 200:
-                info = info_response.json()
-                print(f"🐋 Webhook info: {info}")
-            else:
-                print(f"🐋 Failed to get webhook info: {info_response.text}")
+    try:
+        if Application is None:
+            print("🐋 Telegram bot not imported, skipping Telegram setup")
+            return
+            
+        if os.getenv('TELEGRAM_BOT_TOKEN_2'):
+            print("🐋 Initializing Telegram bot...")
+            telegram_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(telegram_loop)
+            
+            telegram_app = Application.builder().token(os.getenv('TELEGRAM_BOT_TOKEN_2')).build()
+            add_handlers_to_app(telegram_app)
+            
+            telegram_loop.run_until_complete(telegram_app.initialize())
+            print("🐋 Telegram bot initialized in Flask app")
+            
+            # Set bot commands for menu
+            commands = [
+                BotCommand("start", "Show welcome message and options"),
+                BotCommand("set", "Set alert filter (chain and amount)"),
+                BotCommand("status", "Check current filter and status"),
+                BotCommand("stop", "Stop receiving alerts"),
+                BotCommand("resume", "Resume receiving alerts")
+            ]
+            telegram_loop.run_until_complete(telegram_app.bot.set_my_commands(commands))
+            print("🐋 Telegram bot commands set")
+            
+            # Set webhook synchronously to avoid event loop issues
+            base_url = os.getenv('WEBHOOK_BASE_URL', os.getenv('RENDER_EXTERNAL_URL', 'http://localhost:5000'))
+            webhook_url = f"{base_url.rstrip('/')}/telegram"
+            bot_token = os.getenv('TELEGRAM_BOT_TOKEN_2')
+            set_webhook_url = f"https://api.telegram.org/bot{bot_token}/setWebhook"
+            data = {"url": webhook_url}
+            try:
+                response = requests.post(set_webhook_url, data=data, timeout=10)
+                if response.status_code == 200:
+                    print("🐋 Telegram webhook set successfully")
+                    # Verify webhook was set
+                    info_response = requests.get(f"https://api.telegram.org/bot{bot_token}/getWebhookInfo", timeout=10)
+                    if info_response.status_code == 200:
+                        info = info_response.json()
+                        print(f"🐋 Webhook info: {info}")
+                    else:
+                        print(f"🐋 Failed to get webhook info: {info_response.text}")
+                else:
+                    print(f"🐋 Failed to set Telegram webhook: {response.text}")
+            except Exception as e:
+                print(f"🐋 Error setting Telegram webhook: {e}")
+            
+            # Test bot token
+            try:
+                test_response = requests.get(f"https://api.telegram.org/bot{bot_token}/getMe", timeout=10)
+                if test_response.status_code == 200:
+                    bot_info = test_response.json()
+                    print(f"🐋 Bot info: {bot_info}")
+                else:
+                    print(f"🐋 Bot token test failed: {test_response.text}")
+            except Exception as e:
+                print(f"🐋 Error testing bot token: {e}")
         else:
-            print(f"🐋 Failed to set Telegram webhook: {response.text}")
-        
-        # Test bot token
-        test_response = requests.get(f"https://api.telegram.org/bot{bot_token}/getMe")
-        if test_response.status_code == 200:
-            bot_info = test_response.json()
-            print(f"🐋 Bot info: {bot_info}")
-        else:
-            print(f"🐋 Bot token test failed: {test_response.text}")
+            print("🐋 TELEGRAM_BOT_TOKEN_2 not set, skipping Telegram bot initialization")
+    except Exception as e:
+        print(f"🐋 ERROR during Telegram bot setup: {e}")
+        import traceback
+        traceback.print_exc()
+        # Don't crash the app if Telegram setup fails
 
 # Start Telegram setup in background thread
 telegram_thread = threading.Thread(target=setup_telegram_app, daemon=True)
@@ -159,6 +188,11 @@ def debug_telegram_webhook_info():
 @app.route('/', methods=['GET'])
 def index():
     return send_from_directory(os.path.dirname(__file__), 'dashboard.html')
+
+@app.route('/health', methods=['GET'])
+def health():
+    """Health check endpoint for Cloud Run"""
+    return jsonify({'status': 'ok', 'service': 'web3-pipeline'}), 200
 
 @app.route('/api/whales', methods=['GET'])
 def get_whales():
@@ -286,9 +320,12 @@ def cron_trigger():
 if __name__ == "__main__":
     # Start the whale tracker worker in a separate thread
     try:
-        worker_thread = threading.Thread(target=start_worker, daemon=True)
-        worker_thread.start()
-        print("🐋 Whale tracker worker thread started successfully")
+        if start_worker is not None:
+            worker_thread = threading.Thread(target=start_worker, daemon=True)
+            worker_thread.start()
+            print("🐋 Whale tracker worker thread started successfully")
+        else:
+            print("⚠️ Whale tracker worker not available")
     except Exception as e:
         print(f"🐋 ERROR starting whale tracker worker: {e}")
         import traceback

@@ -107,9 +107,16 @@ def setup_telegram_app():
         traceback.print_exc()
         # Don't crash the app if Telegram setup fails
 
-# Start Telegram setup in background thread
-telegram_thread = threading.Thread(target=setup_telegram_app, daemon=True)
+# Start Telegram setup in background thread with a timeout
+def run_telegram_setup_with_timeout():
+    """Run Telegram setup with a 30-second timeout"""
+    setup_telegram_app()
+
+telegram_thread = threading.Thread(target=run_telegram_setup_with_timeout, daemon=True)
+telegram_thread.daemon = True
 telegram_thread.start()
+
+# Don't wait for Telegram setup - Flask should start immediately
 
 
 def maintain_webhook():
@@ -146,9 +153,22 @@ def maintain_webhook():
         # Check every 5 minutes
         time.sleep(300)
 
-# Start webhook maintenance thread
-webhook_thread = threading.Thread(target=maintain_webhook, daemon=True)
-webhook_thread.start()
+def start_webhook_maintenance():
+    """Safely start webhook maintenance thread"""
+    try:
+        maintain_webhook()
+    except Exception as e:
+        print(f"🐋 Webhook maintenance error: {e}")
+        import traceback
+        traceback.print_exc()
+
+# Start webhook maintenance thread only if Telegram bot is enabled
+if os.getenv('TELEGRAM_BOT_TOKEN_2'):
+    webhook_thread = threading.Thread(target=start_webhook_maintenance, daemon=True)
+    webhook_thread.daemon = True
+    webhook_thread.start()
+else:
+    print("🐋 Telegram bot not enabled, skipping webhook maintenance")
 
 @app.route('/telegram', methods=['POST'])
 def telegram_webhook():
@@ -187,7 +207,15 @@ def debug_telegram_webhook_info():
 
 @app.route('/', methods=['GET'])
 def index():
-    return send_from_directory(os.path.dirname(__file__), 'dashboard.html')
+    """Serve dashboard or fallback to health message"""
+    try:
+        return send_from_directory(os.path.dirname(__file__), 'dashboard.html')
+    except FileNotFoundError:
+        return jsonify({
+            'status': 'ok', 
+            'service': 'web3-pipeline',
+            'message': 'Dashboard not available'
+        }), 200
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -318,19 +346,33 @@ def cron_trigger():
     return {'status': 'cron triggered'}, 200
 
 if __name__ == "__main__":
+    print("🐋 ========================================")
+    print("🐋 Web3 Pipeline - Cloud Run Startup")
+    print("🐋 ========================================")
+    
     # Start the whale tracker worker in a separate thread
-    try:
-        if start_worker is not None:
+    if start_worker is not None:
+        try:
+            print("🐋 Starting whale tracker worker thread...")
             worker_thread = threading.Thread(target=start_worker, daemon=True)
             worker_thread.start()
-            print("🐋 Whale tracker worker thread started successfully")
-        else:
-            print("⚠️ Whale tracker worker not available")
+            print("✅ Whale tracker worker thread started")
+        except Exception as e:
+            print(f"⚠️ Warning: Could not start worker thread: {e}")
+    else:
+        print("⚠️ Whale tracker worker not available")
+    
+    # Get port from environment
+    port = int(os.getenv('PORT', '5000'))
+    print(f"🐋 Flask app will listen on port {port}")
+    print("🐋 Starting Flask app...")
+    
+    # Run Flask app on all interfaces
+    try:
+        app.run(debug=False, host='0.0.0.0', port=port, use_reloader=False, threaded=True)
     except Exception as e:
-        print(f"🐋 ERROR starting whale tracker worker: {e}")
+        print(f"🐋 Flask app error: {e}")
         import traceback
         traceback.print_exc()
-    
-    port = int(os.getenv('PORT', '5000'))
-    app.run(debug=False, host='0.0.0.0', port=port, use_reloader=False, threaded=True)
+        sys.exit(1)
 

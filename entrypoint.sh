@@ -4,6 +4,8 @@ cd /app
 export PYTHONPATH=/app:$PYTHONPATH
 
 echo "🐋 Starting web3-pipeline..."
+echo "🐋 Python version: $(python --version)"
+echo "🐋 Python path: $(which python)"
 
 # Always generate config.py from environment variables to ensure Cloud Run env vars are used
 cat > /app/config.py <<'EOF'
@@ -30,7 +32,8 @@ WHALE_TRACKER_TRACKED_TOKENS = {
 EOF
 
 echo "🐋 Config generated from environment variables"
+echo "🐋 PORT=${PORT:-5000}"
 echo "🐋 Starting Flask app..."
 
-# Start the Flask app
-exec python whale_tracker/whale_api.py
+# Start the Flask app with explicit error handling
+exec python -u whale_tracker/whale_api.py 2>&1

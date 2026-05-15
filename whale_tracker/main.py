@@ -11,24 +11,46 @@ config_path = os.path.join(ROOT_DIR, 'config.py')
 spec = importlib.util.spec_from_file_location('config', config_path)
 config = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(config)
+sys.modules['config'] = config
 from whale_tracker.fetch_transfers import get_transfer_logs, decode_transfer, save_to_db
 from telegram_bot.on_chain_alerts import alert, load_filters
 from web3 import Web3
-INFURA_PROJECT_ID = config.INFURA_PROJECT_ID
-WHALE_TRACKER_THRESHOLD_USD = config.WHALE_TRACKER_THRESHOLD_USD
+from config import (
+    INFURA_PROJECT_ID,
+    ALCHEMY_RPC_URL,
+    ETHEREUM_RPC_URL,
+    POLYGON_RPC_URL,
+    ARBITRUM_RPC_URL,
+    WHALE_TRACKER_THRESHOLD_USD,
+)
 
-CHAINS = {
-    'ethereum': f'https://mainnet.infura.io/v3/{INFURA_PROJECT_ID}',
-    'polygon': f'https://polygon-mainnet.infura.io/v3/{INFURA_PROJECT_ID}',
-    'arbitrum': f'https://arbitrum-mainnet.infura.io/v3/{INFURA_PROJECT_ID}'
-}
-
-# Verify config at startup
-if not INFURA_PROJECT_ID:
-    print("[ERROR] INFURA_PROJECT_ID is not set! Worker will fail.")
-else:
+CHAINS = {}
+if INFURA_PROJECT_ID:
+    CHAINS = {
+        'ethereum': f'https://mainnet.infura.io/v3/{INFURA_PROJECT_ID}',
+        'polygon': f'https://polygon-mainnet.infura.io/v3/{INFURA_PROJECT_ID}',
+        'arbitrum': f'https://arbitrum-mainnet.infura.io/v3/{INFURA_PROJECT_ID}'
+    }
     print(f"[CONFIG] INFURA_PROJECT_ID loaded: {INFURA_PROJECT_ID[:10]}...")
-    print(f"[CONFIG] WHALE_TRACKER_THRESHOLD_USD: ${WHALE_TRACKER_THRESHOLD_USD}")
+elif ETHEREUM_RPC_URL or ALCHEMY_RPC_URL or POLYGON_RPC_URL or ARBITRUM_RPC_URL:
+    if ETHEREUM_RPC_URL:
+        CHAINS['ethereum'] = ETHEREUM_RPC_URL
+    elif ALCHEMY_RPC_URL:
+        CHAINS['ethereum'] = ALCHEMY_RPC_URL
+
+    if POLYGON_RPC_URL:
+        CHAINS['polygon'] = POLYGON_RPC_URL
+    if ARBITRUM_RPC_URL:
+        CHAINS['arbitrum'] = ARBITRUM_RPC_URL
+
+    if not CHAINS:
+        print("[ERROR] No blockchain RPC endpoints configured. Worker will fail.")
+    else:
+        print(f"[CONFIG] Using custom RPC endpoints for chains: {', '.join(CHAIN for CHAIN in CHAINS)}")
+else:
+    print("[ERROR] INFURA_PROJECT_ID not set and no custom RPC endpoints provided. Worker will fail.")
+
+print(f"[CONFIG] WHALE_TRACKER_THRESHOLD_USD: ${WHALE_TRACKER_THRESHOLD_USD}")
 
 last_blocks = {'ethereum': None, 'polygon': None, 'arbitrum': None}
 

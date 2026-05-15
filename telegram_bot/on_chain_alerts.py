@@ -1,6 +1,8 @@
 import asyncio
-from config import TELEGRAM_BOT_TOKEN_2, TELEGRAM_CHAT_ID
+from config import TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_TOKEN_2, TELEGRAM_CHAT_ID
 from telegram import Bot
+
+BOT_TOKEN = TELEGRAM_BOT_TOKEN_2 or TELEGRAM_BOT_TOKEN
 
 CHAIN_EXPLORERS = {
     'ethereum': 'etherscan.io',
@@ -10,7 +12,7 @@ CHAIN_EXPLORERS = {
 
 async def send_whale_alert(transfer, threshold, chat_id):
     """Send whale transfer alert to Telegram"""
-    bot = Bot(token=TELEGRAM_BOT_TOKEN_2)
+    bot = Bot(token=BOT_TOKEN)
     chain = transfer.get('chain', 'ethereum')
     explorer = CHAIN_EXPLORERS.get(chain, 'etherscan.io')
     

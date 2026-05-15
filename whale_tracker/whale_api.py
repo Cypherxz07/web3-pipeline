@@ -55,6 +55,7 @@ else:
 # Global event loop for async operations
 telegram_loop = None
 telegram_app = None
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN_2') or os.getenv('TELEGRAM_BOT_TOKEN')
 
 # Database path
 db_path = os.path.join(os.path.dirname(__file__), 'whale_tracker.db')
@@ -66,12 +67,12 @@ def setup_telegram_app():
             print("🐋 Telegram bot not imported, skipping Telegram setup")
             return
             
-        if os.getenv('TELEGRAM_BOT_TOKEN_2'):
+        if TELEGRAM_BOT_TOKEN:
             print("🐋 Initializing Telegram bot...")
             telegram_loop = asyncio.new_event_loop()
             asyncio.set_event_loop(telegram_loop)
             
-            telegram_app = Application.builder().token(os.getenv('TELEGRAM_BOT_TOKEN_2')).build()
+            telegram_app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
             add_handlers_to_app(telegram_app)
             
             telegram_loop.run_until_complete(telegram_app.initialize())
@@ -93,7 +94,7 @@ def setup_telegram_app():
             if base_url == 'http://localhost:5000':
                 print('🐋 WARNING: WEBHOOK_BASE_URL is not set. Telegram webhook will be configured to localhost and will likely fail.')
             webhook_url = f"{base_url.rstrip('/')}/telegram"
-            bot_token = os.getenv('TELEGRAM_BOT_TOKEN_2')
+            bot_token = TELEGRAM_BOT_TOKEN
             set_webhook_url = f"https://api.telegram.org/bot{bot_token}/setWebhook"
             data = {"url": webhook_url}
             try:
@@ -123,7 +124,7 @@ def setup_telegram_app():
             except Exception as e:
                 print(f"🐋 Error testing bot token: {e}")
         else:
-            print("🐋 TELEGRAM_BOT_TOKEN_2 not set, skipping Telegram bot initialization")
+            print("🐋 Telegram bot token not set, skipping Telegram bot initialization")
     except Exception as e:
         print(f"🐋 ERROR during Telegram bot setup: {e}")
         import traceback
@@ -147,7 +148,7 @@ def maintain_webhook():
     import time
     while True:
         try:
-            bot_token = os.getenv('TELEGRAM_BOT_TOKEN_2')
+            bot_token = TELEGRAM_BOT_TOKEN
             if bot_token:
                 # Check current webhook
                 info_response = requests.get(f"https://api.telegram.org/bot{bot_token}/getWebhookInfo", timeout=10)
@@ -186,7 +187,7 @@ def start_webhook_maintenance():
         traceback.print_exc()
 
 # Start webhook maintenance thread only if Telegram bot is enabled
-if os.getenv('TELEGRAM_BOT_TOKEN_2'):
+if TELEGRAM_BOT_TOKEN:
     webhook_thread = threading.Thread(target=start_webhook_maintenance, daemon=True)
     webhook_thread.daemon = True
     webhook_thread.start()
@@ -227,6 +228,17 @@ def debug_telegram_webhook_info():
         return jsonify({'status': 'success', 'webhook_info': webhook_info.to_dict()})
     except Exception as e:
         return jsonify({'status': 'error', 'error': str(e)})
+
+@app.route('/api/debug/service-status', methods=['GET'])
+def debug_service_status():
+    return jsonify({
+        'worker_thread_alive': worker_thread.is_alive() if worker_thread else False,
+        'telegram_thread_alive': telegram_thread.is_alive() if 'telegram_thread' in globals() else False,
+        'telegram_app_initialized': bool(telegram_app),
+        'telegram_token_set': bool(TELEGRAM_BOT_TOKEN),
+        'webhook_base_url': os.getenv('WEBHOOK_BASE_URL', ''),
+        'enable_worker': os.getenv('ENABLE_WORKER', 'true')
+    }), 200
 
 @app.route('/', methods=['GET'])
 def index():

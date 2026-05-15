@@ -3,19 +3,25 @@ set -e
 cd /app
 export PYTHONPATH=/app:$PYTHONPATH
 
+PYTHON_BIN="$(command -v python || true)"
+if [ -z "$PYTHON_BIN" ]; then
+  PYTHON_BIN="/opt/venv/bin/python"
+fi
+
 echo "🐋 Starting web3-pipeline..."
-echo "🐋 Python version: $(python --version)"
-echo "🐋 Python path: $(which python)"
+echo "🐋 Python binary: $PYTHON_BIN"
+echo "🐋 Python version: $($PYTHON_BIN --version)"
+echo "🐋 Python path: $($PYTHON_BIN -c 'import sys; print(sys.executable)')"
 echo "🐋 Current directory: $(pwd)"
 echo "🐋 Files in directory: $(ls -la)"
 
 # Test basic Python import
 echo "🐋 Testing basic Python..."
-python -c "import sys; print('Python works'); print('Python path:', sys.path[:3])"
+"$PYTHON_BIN" -c "import sys; print('Python works'); print('Python path:', sys.path[:3])"
 
 # Test Flask import
 echo "🐋 Testing Flask import..."
-python -c "import flask; print('Flask version:', flask.__version__)" || echo "Flask import failed"
+"$PYTHON_BIN" -c "import flask; print('Flask version:', flask.__version__)" || echo "Flask import failed"
 
 # Always generate config.py from environment variables to ensure Cloud Run env vars are used
 cat > /app/config.py <<'EOF'
@@ -46,4 +52,4 @@ echo "🐋 PORT=${PORT:-5000}"
 echo "🐋 Starting Flask app..."
 
 # Start the Flask app with explicit error handling
-exec python -u whale_tracker/whale_api.py 2>&1
+exec "$PYTHON_BIN" -u whale_tracker/whale_api.py 2>&1

@@ -20,10 +20,10 @@ COPY . .
 WORKDIR /app
 
 ENV PATH="/opt/venv/bin:$PATH"
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app:$PYTHONPATH
 
 EXPOSE 5000
-
-ENV PYTHONPATH=/app:$PYTHONPATH
 
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh

@@ -55,7 +55,7 @@ else:
 # Global event loop for async operations
 telegram_loop = None
 telegram_app = None
-TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN_2') or os.getenv('TELEGRAM_BOT_TOKEN')
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN_2')
 
 # Database path
 db_path = os.path.join(os.path.dirname(__file__), 'whale_tracker.db')

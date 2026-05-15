@@ -34,6 +34,24 @@ except Exception as e:
     Application = None
     add_handlers_to_app = None
 
+worker_thread = None
+
+def start_whale_tracker_thread():
+    try:
+        print('🐋 Whale tracker worker thread beginning')
+        start_worker()
+    except Exception as e:
+        print(f'🐋 Whale tracker worker thread exited with error: {e}')
+        import traceback
+        traceback.print_exc()
+
+if start_worker is not None and os.getenv('ENABLE_WORKER', 'true').lower() in ('1', 'true', 'yes'):
+    worker_thread = threading.Thread(target=start_whale_tracker_thread, daemon=True)
+    worker_thread.start()
+    print('🐋 Whale tracker background worker started')
+else:
+    print('🐋 Whale tracker background worker disabled or unavailable')
+
 # Global event loop for async operations
 telegram_loop = None
 telegram_app = None
@@ -72,6 +90,8 @@ def setup_telegram_app():
             
             # Set webhook synchronously to avoid event loop issues
             base_url = os.getenv('WEBHOOK_BASE_URL', os.getenv('RENDER_EXTERNAL_URL', 'http://localhost:5000'))
+            if base_url == 'http://localhost:5000':
+                print('🐋 WARNING: WEBHOOK_BASE_URL is not set. Telegram webhook will be configured to localhost and will likely fail.')
             webhook_url = f"{base_url.rstrip('/')}/telegram"
             bot_token = os.getenv('TELEGRAM_BOT_TOKEN_2')
             set_webhook_url = f"https://api.telegram.org/bot{bot_token}/setWebhook"

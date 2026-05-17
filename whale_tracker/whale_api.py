@@ -77,6 +77,19 @@ def setup_telegram_app():
             
             telegram_loop.run_until_complete(telegram_app.initialize())
             print("🐋 Telegram bot initialized in Flask app")
+
+            def start_telegram_event_loop():
+                try:
+                    asyncio.set_event_loop(telegram_loop)
+                    telegram_loop.run_forever()
+                except Exception as e:
+                    print(f"🐋 Telegram event loop error: {e}")
+                    import traceback
+                    traceback.print_exc()
+
+            telegram_loop_thread = threading.Thread(target=start_telegram_event_loop, daemon=True)
+            telegram_loop_thread.start()
+            print("🐋 Telegram event loop thread started")
             
             # Set bot commands for menu
             commands = [
@@ -86,9 +99,16 @@ def setup_telegram_app():
                 BotCommand("stop", "Stop receiving alerts"),
                 BotCommand("resume", "Resume receiving alerts")
             ]
-            telegram_loop.run_until_complete(telegram_app.bot.set_my_commands(commands))
-            print("🐋 Telegram bot commands set")
-            
+            try:
+                future = asyncio.run_coroutine_threadsafe(
+                    telegram_app.bot.set_my_commands(commands),
+                    telegram_loop
+                )
+                future.result(timeout=20)
+                print("🐋 Telegram bot commands set")
+            except Exception as e:
+                print(f"🐋 Failed to set Telegram bot commands: {e}")
+
             # Set webhook synchronously to avoid event loop issues
             base_url = os.getenv('WEBHOOK_BASE_URL', os.getenv('RENDER_EXTERNAL_URL', 'http://localhost:5000'))
             if base_url == 'http://localhost:5000':

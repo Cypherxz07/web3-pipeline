@@ -1,5 +1,5 @@
 import asyncio
-from config import TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_TOKEN_2, TELEGRAM_CHAT_ID
+from config import TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_TOKEN_2, TELEGRAM_CHAT_ID, WHALE_ALERT_DEFAULT_COOLDOWN
 from telegram import Bot
 
 BOT_TOKEN = TELEGRAM_BOT_TOKEN_2 or TELEGRAM_BOT_TOKEN
@@ -69,7 +69,7 @@ async def alert(transfer, threshold):
             continue
 
         # Rate limiting - configurable per user
-        cooldown_seconds = user_filter.get('cooldown', 60)  # Default 60 seconds
+        cooldown_seconds = user_filter.get('cooldown', WHALE_ALERT_DEFAULT_COOLDOWN)
         last_time = last_alert_times.get(chat_id, 0)
         if current_time - last_time < cooldown_seconds:
             continue  # Skip if too recent

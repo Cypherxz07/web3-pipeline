@@ -70,11 +70,12 @@ def save_to_db(transfer):
     try:
         cursor.execute("""
         INSERT OR IGNORE INTO transfers 
-        (tx_hash, block_number, from_address, to_address, token_address, token_symbol, amount, amount_usd, chain)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (tx_hash, block_number, timestamp, from_address, to_address, token_address, token_symbol, amount, amount_usd, chain)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             transfer['tx_hash'],
             transfer['block'],
+            transfer.get('timestamp'),
             transfer['from'],
             transfer['to'],
             transfer['token'],

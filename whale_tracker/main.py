@@ -98,6 +98,12 @@ async def run():
             for log in logs:
                 transfer = decode_transfer(log)
                 transfer['chain'] = chain_name
+                # attach block timestamp so DB and history queries can use it
+                try:
+                    blk = w3.eth.get_block(transfer['block'])
+                    transfer['timestamp'] = int(blk['timestamp'])
+                except Exception as e:
+                    print(f"Warning: could not fetch block timestamp for block {transfer.get('block')}: {e}")
                 
                 if transfer['amount_usd'] > track_threshold:
                     print(f"🐋 [{chain_name}] {transfer['token_symbol']}: ${transfer['amount_usd']:,.2f}")

@@ -275,26 +275,32 @@ def parse_date_token(token: str) -> datetime | None:
         return None
 
 
-def query_history_rows(chain: str | None, start_ts: int, end_ts: int, limit: int = 10):
+def query_history_rows(chain: str | None, start_ts: int, end_ts: int, min_amount: float | None = None, limit: int = 10):
     if not os.path.exists(DB_PATH):
         return []
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
+    params = []
+    where_clauses = ['created_at BETWEEN datetime(?, "unixepoch") AND datetime(?, "unixepoch")']
+    params.extend([start_ts, end_ts])
+
     if chain:
-        cursor.execute(
-            'SELECT tx_hash, block_number, timestamp, token_symbol, amount_usd, chain FROM transfers '
-            'WHERE chain = ? AND timestamp BETWEEN ? AND ? '
-            'ORDER BY timestamp DESC LIMIT ?',
-            (chain, start_ts, end_ts, limit)
-        )
-    else:
-        cursor.execute(
-            'SELECT tx_hash, block_number, timestamp, token_symbol, amount_usd, chain FROM transfers '
-            'WHERE timestamp BETWEEN ? AND ? '
-            'ORDER BY timestamp DESC LIMIT ?',
-            (start_ts, end_ts, limit)
-        )
+        where_clauses.insert(0, 'chain = ?')
+        params.insert(0, chain)
+
+    if min_amount is not None:
+        where_clauses.append('amount_usd >= ?')
+        params.append(min_amount)
+
+    where_sql = ' AND '.join(where_clauses)
+    sql = (
+        'SELECT tx_hash, block_number, created_at, token_symbol, amount_usd, chain FROM transfers '
+        f'WHERE {where_sql} '
+        'ORDER BY created_at DESC LIMIT ?'
+    )
+    params.append(limit)
+    cursor.execute(sql, tuple(params))
     rows = cursor.fetchall()
     conn.close()
     return rows
@@ -346,7 +352,7 @@ def format_history_message(rows):
         return "No transfers were found for that range."
     text = []
     for row in rows:
-        ts = datetime.fromtimestamp(row['timestamp'], tz=timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
+        ts = row['created_at'] if row['created_at'] else 'N/A'
         amount_usd = row['amount_usd'] or 0
         text.append(
             f"{row['chain'].upper()} | {row['token_symbol']} | ${amount_usd:,.2f}\n"
@@ -442,12 +448,23 @@ async def history_command(update: Update, context):
                 conn = sqlite3.connect(DB_PATH)
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
-                cursor.execute(
+                params = [start_block, end_block]
+                where = ['block_number BETWEEN ? AND ?']
+                if chain:
+                    where.insert(0, 'chain = ?')
+                    params.insert(0, chain)
+                min_amt = user_filter.get('min_amount')
+                if min_amt is not None:
+                    where.append('amount_usd >= ?')
+                    params.append(min_amt)
+                where_sql = ' AND '.join(where)
+                sql = (
                     'SELECT tx_hash, block_number, timestamp, token_symbol, amount_usd, chain FROM transfers '
-                    'WHERE block_number BETWEEN ? AND ? '
-                    'ORDER BY block_number DESC LIMIT ?',
-                    (start_block, end_block, 10)
+                    f'WHERE {where_sql} '
+                    'ORDER BY block_number DESC LIMIT ?'
                 )
+                params.append(10)
+                cursor.execute(sql, tuple(params))
                 rows = cursor.fetchall()
                 conn.close()
             await update.message.reply_text(
@@ -465,10 +482,12 @@ async def history_command(update: Update, context):
         )
         return
 
-    rows = query_history_rows(chain, start_ts, end_ts)
+    min_amount = user_filter.get('min_amount')
+    rows = query_history_rows(chain, start_ts, end_ts, min_amount=min_amount)
     chat_chain = f" on {chain.upper()}" if chain else ""
+    min_text = f" (min ${min_amount:,.0f})" if min_amount else ""
     await update.message.reply_text(
-        f"📜 Transfer history{chat_chain} from {datetime.fromtimestamp(start_ts, tz=timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} "
+        f"📜 Transfer history{chat_chain}{min_text} from {datetime.fromtimestamp(start_ts, tz=timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} "
         f"to {datetime.fromtimestamp(end_ts, tz=timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}:\n\n"
         + format_history_message(rows)
     )

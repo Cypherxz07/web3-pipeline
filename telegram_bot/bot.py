@@ -10,7 +10,7 @@ import json
 import re
 import sqlite3
 from datetime import datetime, timezone, timedelta
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
 from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
 from telegram.error import Conflict
 
@@ -34,6 +34,20 @@ def load_filters():
 def save_filters(filters):
     with open(USER_FILTERS_FILE, 'w') as f:
         json.dump(filters, f)
+
+
+def ensure_user_filter(chat_id: str):
+    filters = load_filters()
+    if chat_id not in filters:
+        filters[chat_id] = {
+            'chain': 'ethereum',
+            'min_amount': 500000,
+            'enabled': True,
+            'cooldown': 60
+        }
+        save_filters(filters)
+    return filters[chat_id]
+
 
 async def set_filter(update: Update, context):
     """Usage: /set <chain> <min_amount>"""
@@ -574,6 +588,9 @@ async def history_command(update: Update, context):
 
 
 async def start_command(update: Update, context):
+    chat_id = str(update.effective_chat.id)
+    user_filter = ensure_user_filter(chat_id)
+
     keyboard = [
         [InlineKeyboardButton("Set Alert Filter", callback_data="set_filter")],
         [InlineKeyboardButton("Check Status", callback_data="status")],
@@ -587,6 +604,7 @@ async def start_command(update: Update, context):
     await update.message.reply_text(
         "🐋 Welcome to Multi-Chain Whale Tracker!\n\n"
         "Get notified when large cryptocurrency transfers happen on Ethereum, Polygon, and Arbitrum.\n\n"
+        f"This chat is now configured with chain {user_filter['chain'].upper()} and minimum ${user_filter['min_amount']:,.0f}.\n\n"
         "Use the buttons below or type: /set, /status, /cooldown, /history, /stop, /resume",
         reply_markup=reply_markup
     )
@@ -657,8 +675,21 @@ def add_handlers_to_app(app):
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_custom_amount))
     app.add_handler(CallbackQueryHandler(button_callback))
 
+async def register_bot_commands(application):
+    commands = [
+        BotCommand('start', 'Open bot menu'),
+        BotCommand('set', 'Configure chain and amount'),
+        BotCommand('status', 'View current filter'),
+        BotCommand('cooldown', 'Set alert cooldown'),
+        BotCommand('history', 'View transfer history'),
+        BotCommand('stop', 'Pause alerts'),
+        BotCommand('resume', 'Resume alerts')
+    ]
+    await application.bot.set_my_commands(commands)
+
+
 def main():
-    app = Application.builder().token(TELEGRAM_BOT_TOKEN_2).build()
+    app = Application.builder().token(TELEGRAM_BOT_TOKEN_2).post_init(register_bot_commands).build()
     add_handlers_to_app(app)
 
     print("🐋 Telegram Whale Tracker Bot started!")

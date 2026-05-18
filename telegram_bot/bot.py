@@ -108,8 +108,10 @@ async def button_callback(update: Update, context):
         )
 
     elif data == "custom_amount":
+        context.user_data['waiting_for_custom_amount'] = True
         await query.edit_message_text(
-            "Enter custom amount with command:\n/set <chain> <amount>\n\nExample: /set ethereum 250000"
+            f"Selected chain: {context.user_data.get('selected_chain', 'ethereum').upper()}\n\n"
+            "Send me the custom minimum amount (e.g., 250000 for $250K):"
         )
 
     elif data == "set_filter":
@@ -170,7 +172,7 @@ async def button_callback(update: Update, context):
             reply_markup=reply_markup
         )
 
-    elif data == "set_cooldown":
+    elif data == "set_cooldown" or data == "set_cooldown_from_menu":
         keyboard = [
             [InlineKeyboardButton("No limit", callback_data="cooldown_0")],
             [InlineKeyboardButton("30 seconds", callback_data="cooldown_30")],
@@ -222,6 +224,44 @@ async def button_callback(update: Update, context):
         save_filters(filters)
 
         await query.edit_message_text("✅ Alerts resumed! You'll now receive whale transfer notifications again.")
+
+    elif data == "history_menu":
+        keyboard = [
+            [InlineKeyboardButton("Last 24h", callback_data="history_period_24h")],
+            [InlineKeyboardButton("Last 7 days", callback_data="history_period_7d")],
+            [InlineKeyboardButton("Last 30 days", callback_data="history_period_30d")],
+            [InlineKeyboardButton("Back to Menu", callback_data="status")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(
+            "📜 Select a time period to view transfer history:",
+            reply_markup=reply_markup
+        )
+
+    elif data.startswith("history_period_"):
+        period_map = {"24h": "24h", "7d": "7d", "30d": "30d"}
+        period = data.split("_")[-1]
+        period_key = period_map.get(period, "24h")
+        
+        filters = load_filters()
+        user_filter = filters.get(chat_id, {})
+        chain = user_filter.get('chain')
+        min_amount = user_filter.get('min_amount')
+        
+        now = datetime.now(timezone.utc)
+        if period_key == "24h":
+            start_ts = int((now - timedelta(hours=24)).timestamp())
+        elif period_key == "7d":
+            start_ts = int((now - timedelta(days=7)).timestamp())
+        else:
+            start_ts = int((now - timedelta(days=30)).timestamp())
+        end_ts = int(now.timestamp())
+        
+        rows = query_history_rows(chain, start_ts, end_ts, min_amount=min_amount)
+        chat_chain = f" on {chain.upper()}" if chain else ""
+        min_text = f" (min ${min_amount:,.0f})" if min_amount else ""
+        title = f"📜 Transfer history{chat_chain}{min_text} (last {period_key}):"
+        await send_history_messages(query.message, rows, title)
 
     elif data == "test_alert":
         # Send a test alert
@@ -355,11 +395,51 @@ def format_history_message(rows):
         ts = row['created_at'] if row['created_at'] else 'N/A'
         amount_usd = row['amount_usd'] or 0
         text.append(
-            f"{row['chain'].upper()} | {row['token_symbol']} | ${amount_usd:,.2f}\n"
-            f"Block {row['block_number']} | {ts}\n"
-            f"Tx: {format_history_link(row['chain'], row['tx_hash'])}"
+            f"💰 {row['chain'].upper()} {row['token_symbol']} ${amount_usd:,.2f}\n"
+            f"📦 Block {row['block_number']} | {ts}\n"
+            f"🔗 {format_history_link(row['chain'], row['tx_hash'])}"
         )
     return "\n\n".join(text)
+
+
+async def send_history_messages(update: Update, rows, title: str):
+    """Split history into readable chunks to avoid Telegram message limits."""
+    if not rows:
+        await update.callback_query.edit_message_text(f"{title}\n\nNo transfers found.")
+        return
+    
+    messages = []
+    current_msg = ""
+    
+    for row in rows:
+        ts = row['created_at'] if row['created_at'] else 'N/A'
+        amount_usd = row['amount_usd'] or 0
+        entry = (
+            f"💰 {row['chain'].upper()} {row['token_symbol']} ${amount_usd:,.2f}\n"
+            f"📦 Block {row['block_number']} | {ts}\n"
+            f"🔗 {format_history_link(row['chain'], row['tx_hash'])}"
+        )
+        
+        if len(current_msg) + len(entry) + 4 > 3500:
+            if current_msg:
+                messages.append(current_msg)
+            current_msg = entry
+        else:
+            current_msg += ("\n\n" if current_msg else "") + entry
+    
+    if current_msg:
+        messages.append(current_msg)
+    
+    if update.callback_query:
+        await update.callback_query.edit_message_text(title)
+    else:
+        await update.message.reply_text(title)
+    
+    for msg in messages:
+        if update.callback_query:
+            await update.callback_query.message.reply_text(msg)
+        else:
+            await update.message.reply_text(msg)
 
 
 async def cooldown_command(update: Update, context):
@@ -497,6 +577,8 @@ async def start_command(update: Update, context):
     keyboard = [
         [InlineKeyboardButton("Set Alert Filter", callback_data="set_filter")],
         [InlineKeyboardButton("Check Status", callback_data="status")],
+        [InlineKeyboardButton("View History", callback_data="history_menu")],
+        [InlineKeyboardButton("Rate Limit", callback_data="set_cooldown")],
         [InlineKeyboardButton("Test Alert", callback_data="test_alert")],
         [InlineKeyboardButton("Stop Alerts", callback_data="stop_alerts")]
     ]
@@ -505,7 +587,7 @@ async def start_command(update: Update, context):
     await update.message.reply_text(
         "🐋 Welcome to Multi-Chain Whale Tracker!\n\n"
         "Get notified when large cryptocurrency transfers happen on Ethereum, Polygon, and Arbitrum.\n\n"
-        "Commands: /set, /status, /cooldown, /history, /stop, /resume",
+        "Use the buttons below or type: /set, /status, /cooldown, /history, /stop, /resume",
         reply_markup=reply_markup
     )
 
@@ -535,7 +617,36 @@ async def resume_command(update: Update, context):
 
     await update.message.reply_text("✅ Alerts resumed! You'll now receive whale transfer notifications again.")
 
+async def handle_custom_amount(update: Update, context):
+    """Handle text input for custom amount."""
+    if not context.user_data.get('waiting_for_custom_amount'):
+        return
+    
+    try:
+        amount = float(update.message.text)
+        if amount <= 0:
+            await update.message.reply_text("Please enter a positive number.")
+            return
+        
+        chat_id = str(update.effective_chat.id)
+        chain = context.user_data.get('selected_chain', 'ethereum')
+        
+        filters = load_filters()
+        filters[chat_id] = {'chain': chain, 'min_amount': amount}
+        save_filters(filters)
+        
+        context.user_data['waiting_for_custom_amount'] = False
+        await update.message.reply_text(
+            f"✅ Alerts set for {chain.upper()} transactions above ${amount:,.0f}\n\n"
+            f"Use /status to check your filter or /set to change it."
+        )
+    except ValueError:
+        await update.message.reply_text("Please enter a valid number (e.g., 250000).")
+
+
 def add_handlers_to_app(app):
+    from telegram.ext import MessageHandler, filters
+    
     app.add_handler(CommandHandler(["set", "set_filter"], set_filter))
     app.add_handler(CommandHandler("status", get_filter_status))
     app.add_handler(CommandHandler("start", start_command))
@@ -543,6 +654,7 @@ def add_handlers_to_app(app):
     app.add_handler(CommandHandler("resume", resume_command))
     app.add_handler(CommandHandler("cooldown", cooldown_command))
     app.add_handler(CommandHandler("history", history_command))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_custom_amount))
     app.add_handler(CallbackQueryHandler(button_callback))
 
 def main():
@@ -550,7 +662,7 @@ def main():
     add_handlers_to_app(app)
 
     print("🐋 Telegram Whale Tracker Bot started!")
-    print("Available commands: /start, /set, /status")
+    print("Available commands: /start, /set, /status, /cooldown, /history, /stop, /resume")
     print("Filter file:", USER_FILTERS_FILE)
 
     try:

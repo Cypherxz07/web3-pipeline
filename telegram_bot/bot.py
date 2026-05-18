@@ -7,6 +7,9 @@ import sys
 import time
 import asyncio
 import json
+import re
+import sqlite3
+from datetime import datetime, timezone, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
 from telegram.error import Conflict
@@ -20,6 +23,7 @@ from config import TELEGRAM_BOT_TOKEN_2
 
 # Shared filter file path at repository root
 USER_FILTERS_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'user_filters.json'))
+DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'whale_tracker', 'whale_tracker.db'))
 
 def load_filters():
     if os.path.exists(USER_FILTERS_FILE):
@@ -137,17 +141,16 @@ async def button_callback(update: Update, context):
         else:
             enabled = user_filter.get('enabled', True)
             cooldown = user_filter.get('cooldown', 60)
-            cooldown_text = f"{cooldown//60}min" if cooldown >= 60 else f"{cooldown}s"
             status_text = "✅ Active" if enabled else "🛑 Stopped"
             keyboard = [
                 [InlineKeyboardButton("Change Filter", callback_data="set_filter")],
                 [InlineKeyboardButton("Test Alert", callback_data="test_alert")],
                 [InlineKeyboardButton("Stop Alerts" if enabled else "Resume Alerts", callback_data="toggle_alerts")],
-                [InlineKeyboardButton(f"Rate Limit: {cooldown_text}", callback_data="set_cooldown")]
+                [InlineKeyboardButton(f"Rate Limit: {format_duration(cooldown)}", callback_data="set_cooldown")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             await query.edit_message_text(
-                f"Status: {status_text}\nChain: {user_filter['chain'].upper()}\nMinimum amount: ${user_filter['min_amount']:,.0f}\nRate limit: {cooldown_text} between alerts",
+                f"Status: {status_text}\nChain: {user_filter['chain'].upper()}\nMinimum amount: ${user_filter['min_amount']:,.0f}\nRate limit: {format_duration(cooldown)} between alerts\n\nUse /cooldown to change the limit or /history to view recent transfers.",
                 reply_markup=reply_markup
             )
 
@@ -238,6 +241,65 @@ Block: 12345678
         await bot.send_message(chat_id=chat_id, text=test_message, parse_mode='Markdown')
         await query.edit_message_text("✅ Test alert sent! Check your messages.")
 
+def format_duration(seconds: int) -> str:
+    if seconds == 0:
+        return "No limit"
+    if seconds >= 60 and seconds % 60 == 0:
+        return f"{seconds // 60}min"
+    return f"{seconds}s"
+
+
+def parse_cooldown_arg(token: str) -> int | None:
+    token = token.strip().lower()
+    if token.isdigit():
+        return int(token)
+    m = re.match(r'^(\d+)([smhd])$', token)
+    if not m:
+        return None
+    value, unit = int(m.group(1)), m.group(2)
+    if unit == 's':
+        return value
+    if unit == 'm':
+        return value * 60
+    if unit == 'h':
+        return value * 3600
+    if unit == 'd':
+        return value * 86400
+    return None
+
+
+def parse_date_token(token: str) -> datetime | None:
+    try:
+        return datetime.strptime(token, '%Y-%m-%d').replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+
+
+def query_history_rows(chain: str | None, start_ts: int, end_ts: int, limit: int = 10):
+    if not os.path.exists(DB_PATH):
+        return []
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    if chain:
+        cursor.execute(
+            'SELECT tx_hash, block_number, timestamp, token_symbol, amount_usd, chain FROM transfers '
+            'WHERE chain = ? AND timestamp BETWEEN ? AND ? '
+            'ORDER BY timestamp DESC LIMIT ?',
+            (chain, start_ts, end_ts, limit)
+        )
+    else:
+        cursor.execute(
+            'SELECT tx_hash, block_number, timestamp, token_symbol, amount_usd, chain FROM transfers '
+            'WHERE timestamp BETWEEN ? AND ? '
+            'ORDER BY timestamp DESC LIMIT ?',
+            (start_ts, end_ts, limit)
+        )
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
+
+
 async def get_filter_status(update: Update, context):
     chat_id = str(update.effective_chat.id)
     filters = load_filters()
@@ -251,16 +313,166 @@ async def get_filter_status(update: Update, context):
         )
         return
 
+    cooldown = user_filter.get('cooldown', 60)
     keyboard = [
         [InlineKeyboardButton("Change Filter", callback_data="set_filter")],
-        [InlineKeyboardButton("Test Alert", callback_data="test_alert")]
+        [InlineKeyboardButton("Test Alert", callback_data="test_alert")],
+        [InlineKeyboardButton("Stop Alerts", callback_data="toggle_alerts")],
+        [InlineKeyboardButton(f"Rate Limit: {format_duration(cooldown)}", callback_data="set_cooldown")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await update.message.reply_text(
-        f"✅ Current filter:\nChain: {user_filter['chain'].upper()}\nMinimum amount: ${user_filter['min_amount']:,.0f}",
+        f"✅ Current filter:\nChain: {user_filter['chain'].upper()}\n"  \
+        f"Minimum amount: ${user_filter['min_amount']:,.0f}\n"  \
+        f"Rate limit: {format_duration(cooldown)}\n"  \
+        f"Use /cooldown to change rate limit or /history to view recent transfers.",
         reply_markup=reply_markup
     )
+
+
+def format_history_link(chain: str, tx_hash: str) -> str:
+    explorers = {
+        'ethereum': 'https://etherscan.io',
+        'polygon': 'https://polygonscan.com',
+        'arbitrum': 'https://arbiscan.io',
+    }
+    base = explorers.get(chain.lower(), 'https://etherscan.io')
+    return f"{base}/tx/{tx_hash}"
+
+
+def format_history_message(rows):
+    if not rows:
+        return "No transfers were found for that range."
+    text = []
+    for row in rows:
+        ts = datetime.fromtimestamp(row['timestamp'], tz=timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
+        amount_usd = row['amount_usd'] or 0
+        text.append(
+            f"{row['chain'].upper()} | {row['token_symbol']} | ${amount_usd:,.2f}\n"
+            f"Block {row['block_number']} | {ts}\n"
+            f"Tx: {format_history_link(row['chain'], row['tx_hash'])}"
+        )
+    return "\n\n".join(text)
+
+
+async def cooldown_command(update: Update, context):
+    chat_id = str(update.effective_chat.id)
+    filters = load_filters()
+    user_filter = filters.get(chat_id, {})
+    if not context.args:
+        current = user_filter.get('cooldown', 60)
+        await update.message.reply_text(
+            f"Current cooldown is {format_duration(current)}.\n"
+            "Use /cooldown <seconds|30s|1m|5m|0> to change it."
+        )
+        return
+
+    cooldown_value = parse_cooldown_arg(context.args[0])
+    if cooldown_value is None or cooldown_value < 0:
+        await update.message.reply_text(
+            "Invalid cooldown. Use /cooldown <seconds|30s|1m|5m|0>. Example: /cooldown 60"
+        )
+        return
+
+    user_filter['cooldown'] = cooldown_value
+    filters[chat_id] = user_filter
+    save_filters(filters)
+
+    await update.message.reply_text(
+        f"✅ Rate limit set to {format_duration(cooldown_value)}."
+    )
+
+
+async def history_command(update: Update, context):
+    chat_id = str(update.effective_chat.id)
+    filters = load_filters()
+    user_filter = filters.get(chat_id, {})
+    chain = user_filter.get('chain')
+
+    if len(context.args) == 0:
+        await update.message.reply_text(
+            "Usage: /history <period> OR /history <from> <to>\n"
+            "Examples:\n"
+            " /history 24h\n"
+            " /history 7d\n"
+            " /history 2026-05-01 2026-05-07\n"
+            " /history 18000000 18001000\n"
+            "If you have a filter active, history will default to that chain."
+        )
+        return
+
+    now = datetime.now(timezone.utc)
+    start_ts = None
+    end_ts = int(now.timestamp())
+    if len(context.args) == 1:
+        period = context.args[0].lower()
+        m = re.match(r'^(\d+)([smhd])$', period)
+        if m:
+            value = int(m.group(1))
+            unit = m.group(2)
+            if unit == 's':
+                delta = timedelta(seconds=value)
+            elif unit == 'm':
+                delta = timedelta(minutes=value)
+            elif unit == 'h':
+                delta = timedelta(hours=value)
+            else:
+                delta = timedelta(days=value)
+            start_ts = int((now - delta).timestamp())
+        else:
+            await update.message.reply_text(
+                "Invalid history period. Use 24h, 7d, or provide two dates or blocks."
+            )
+            return
+    elif len(context.args) == 2:
+        left, right = context.args
+        left_date = parse_date_token(left)
+        right_date = parse_date_token(right)
+        if left_date and right_date:
+            start_ts = int(left_date.timestamp())
+            end_ts = int((right_date + timedelta(days=1)).timestamp())
+        elif left.isdigit() and right.isdigit():
+            start_block = int(left)
+            end_block = int(right)
+            if start_block > end_block:
+                start_block, end_block = end_block, start_block
+            rows = []
+            if os.path.exists(DB_PATH):
+                conn = sqlite3.connect(DB_PATH)
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute(
+                    'SELECT tx_hash, block_number, timestamp, token_symbol, amount_usd, chain FROM transfers '
+                    'WHERE block_number BETWEEN ? AND ? '
+                    'ORDER BY block_number DESC LIMIT ?',
+                    (start_block, end_block, 10)
+                )
+                rows = cursor.fetchall()
+                conn.close()
+            await update.message.reply_text(
+                f"📜 Transfer history for blocks {start_block} to {end_block}:\n\n" + format_history_message(rows)
+            )
+            return
+        else:
+            await update.message.reply_text(
+                "Invalid history arguments. Use two dates (YYYY-MM-DD) or two block numbers."
+            )
+            return
+    else:
+        await update.message.reply_text(
+            "Too many arguments. Use /history <period> or /history <from> <to>."
+        )
+        return
+
+    rows = query_history_rows(chain, start_ts, end_ts)
+    chat_chain = f" on {chain.upper()}" if chain else ""
+    await update.message.reply_text(
+        f"📜 Transfer history{chat_chain} from {datetime.fromtimestamp(start_ts, tz=timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} "
+        f"to {datetime.fromtimestamp(end_ts, tz=timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}:\n\n"
+        + format_history_message(rows)
+    )
+
 
 async def start_command(update: Update, context):
     keyboard = [
@@ -274,7 +486,7 @@ async def start_command(update: Update, context):
     await update.message.reply_text(
         "🐋 Welcome to Multi-Chain Whale Tracker!\n\n"
         "Get notified when large cryptocurrency transfers happen on Ethereum, Polygon, and Arbitrum.\n\n"
-        "Commands: /set, /status, /stop, /resume",
+        "Commands: /set, /status, /cooldown, /history, /stop, /resume",
         reply_markup=reply_markup
     )
 
@@ -310,6 +522,8 @@ def add_handlers_to_app(app):
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("stop", stop_command))
     app.add_handler(CommandHandler("resume", resume_command))
+    app.add_handler(CommandHandler("cooldown", cooldown_command))
+    app.add_handler(CommandHandler("history", history_command))
     app.add_handler(CallbackQueryHandler(button_callback))
 
 def main():
